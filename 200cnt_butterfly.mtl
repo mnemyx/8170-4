@@ -1,0 +1,29 @@
+newmtl blinn1SG
+illum 4
+Kd 0.00 0.00 0.00
+Ka 0.00 0.00 0.00
+Tf 1.00 1.00 1.00
+map_Kd -o -0.05 0.05 test.psd
+Ni 1.00
+Ks 0.50 0.50 0.50
+newmtl blinn5SG
+illum 4
+Kd 1.00 0.00 0.13
+Ka 0.00 0.00 0.00
+Tf 1.00 1.00 1.00
+bump 2147018-abstract-blue-texture-of-shiny-butterfly-wing--morpho.jpg -bm 0.025
+Ni 1.00
+Ks 0.50 0.50 0.50
+newmtl initialShadingGroup
+illum 4
+Kd 0.50 0.50 0.50
+Ka 0.00 0.00 0.00
+Tf 1.00 1.00 1.00
+Ni 1.00
+newmtl lambert3SG
+illum 4
+Kd 0.19 0.17 0.14
+Ka 0.00 0.00 0.00
+Tf 1.00 1.00 1.00
+bump 2147018-abstract-blue-texture-of-shiny-butterfly-wing--morpho.jpg -bm 0.25
+Ni 1.00
