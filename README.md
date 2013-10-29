@@ -19,7 +19,9 @@ DESCRIPTION
 	Gauss/Matrix/Vector/Utility by Dr. House
 	Model Class modified to create an isosphere & plane
 
-	Color/Face/File/Group/ImageFile/Line/MakeSpace/Material/MTLFile/OBJFile/Pixmap/PolySurf by Dr. House 
+	Color/Face/File/Group/ImageFile/Line/MakeSpace/Material
+	MTLFile/OBJFile/Pixmap/PolySurf by Dr. House
+	These were re-used from CpSc 405 - Spring 2011's Hwk #6 
 
 	OBJ/MTL files generated in Maya
 
@@ -108,4 +110,4 @@ SAMPLE OUTPUT FILES
 
 TOTAL FILE COUNT
 ==================================================================
-????
+	????
