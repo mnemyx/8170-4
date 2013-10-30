@@ -1,6 +1,6 @@
 /*
  *  PolySurf.cpp
- *  
+ *
  *  Created by Donald House on 2/18/11.
  *  Copyright 2011 Clemson University. All rights reserved.
  *
@@ -14,11 +14,13 @@
 using namespace std;
 
 PolySurf::PolySurf(){
-  nverts = nnorms = nuvs = nfaces = 0;
-  maxverts = maxnorms = maxuvs = maxfaces = 0;
+  nverts = nnorms = nuvs = nfaces = nedges = neg =  0;
+  maxverts = maxnorms = maxuvs = maxfaces = maxedges = mneg = 0;
   verts = norms = NULL;
   uvs = NULL;
   faces = NULL;
+  edges = NULL;
+  edgegrps = NULL;
 
   npoints = nlines = 0;
   maxpoints = maxlines = 0;
@@ -40,6 +42,8 @@ PolySurf::~PolySurf(){
   delete []lines;
   delete []groups;
   delete []materials;
+  delete []edges;
+  delete []edgegrps;
 }
 
 void PolySurf::addVertex(const Vector3d &v){
@@ -56,11 +60,11 @@ void PolySurf::addNormal(const Vector3d &n){
 
 Vector3d PolySurf::computeNormal(int face) {
 	Vector3d x0, x1, x2;
-	
+
 		x0 = verts[faces[face].verts[0][0]];
 		x1 = verts[faces[face].verts[1][0]];
 		x2 = verts[faces[face].verts[2][0]];
-		
+
 		return (((x1-x0) % (x2-x0)).normalize());
 }
 
@@ -76,10 +80,38 @@ void PolySurf::addPoint(int p){
   points[npoints++] = p;
 }
 
+void PolySurf::addEdge(const Vector2d &e, int groupid){
+  int exists = false;
+  int i;
+  Vector2d e_reversed;
+  e_reversed.set(e[0], e[1]);
+
+  for (i = 0; i < nedges; i++) {
+    if(((int)edges[i][0] == (int)e[0] &&
+        (int)edges[i][1] == (int)e[1]) ||
+        ((int)edges[i][0] == (int)e[1] &&
+        (int)edges[i][1] == (int)e[0])
+        || (int)e[0] == (int)e[1]) {
+        exists = true;
+        break;
+    }
+  }
+
+  if(!exists) {
+      if(maxedges == nedges) {
+        edges = makespace <Vector2d> (maxedges, edges);
+        edgegrps = makespace <int> (mneg, edgegrps);
+      }
+
+      edges[nedges++] = e;
+      edgegrps[neg++] = groupid;
+  }
+}
+
 int PolySurf::newFace(int g, int m){
   if(maxfaces == nfaces)
     faces = makespace <Face> (maxfaces, faces);
-  
+
   faces[nfaces].setGroup(g);
   faces[nfaces].setMaterial(m);
   return nfaces++;
@@ -96,7 +128,7 @@ int PolySurf::newLine(){
 }
 
 void PolySurf::addLinePoint(int l, int p){
-  lines[l].addPoint(p);  
+  lines[l].addPoint(p);
 }
 
 int PolySurf::setGroup(char *gname){
@@ -123,7 +155,7 @@ int PolySurf::newMaterial(char *mname){
 
   if(maxmaterials == nmaterials)
     materials = makespace <Material> (maxmaterials, materials);
-  
+
   materials[nmaterials].setName(mname);
   return nmaterials++;
 }
@@ -153,7 +185,7 @@ void PolySurf::setMaterialIllum(int m, int n){
 }
 
 void PolySurf::setMaterialMap(int m, int mtype, Pixmap *p){
-  materials[m].setMap(mtype, p); 
+  materials[m].setMap(mtype, p);
 }
 
 int PolySurf::idxMaterial(char *mname){
@@ -203,13 +235,16 @@ Vector3d PolySurf::MaxBBox(){
 
 ostream& operator<< (ostream& os, const PolySurf& ps){
   os << "[polysurf: " << endl;
-  os << "verts (" << ps.nverts << ") = ";
+  os << "verts (" << ps.nverts << ") = " << endl;
   for(int i = 0; i < ps.nverts; i++)
-    os << ps.verts[i] << " ";
+    os << i << " : " << ps.verts[i] << endl;
   os << endl;
   os << "faces (" << ps.nfaces << ") = " << endl;
   for(int i = 0; i < ps.nfaces; i++)
     os << i << " : " << ps.faces[i] << endl;
+  os << "edges (" << ps.nedges << ") = " << endl;
+  for(int i = 0; i < ps.nedges; i++)
+    os << i << " : G(" << ps.edgegrps[i] << "),  [" << ps.edges[i].x << ", " << ps.edges[i].y << "]" << endl;
   os << "lines (" << ps.nlines << ") = " << endl;
   for(int i = 0; i < ps.nlines; i++)
     os << i << " : " << ps.lines[i] << endl;

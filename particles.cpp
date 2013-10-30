@@ -131,6 +131,7 @@ double Kc = .75;
 static OBJFile Objfile;
 static PolySurf *Butterfly;	      // polygonal surface data structure
 static Vector3d B_Centroid, B_Bboxmin, B_Bboxmax;
+static Vector3d TopRV, TopLV;                // vertices that should control the motion of the wings...
 
 /** Texture map to be used by program **/
 static GLuint* TextureID;	    		// texture ID from OpenGL
@@ -272,12 +273,12 @@ void StrutForces(State s) {            // needs state, strut and forces
         Forces[i].set(0.0,0.0,0.0);
 
     // adding and calculating force - starting with spring and dampener
-    for (i = 0; i < Butterfly->getFaceCnt() * 3; i++) {
+    for (i = 0; i < Butterfly->getEdgeCnt(); i++) {
         xi = B_Strut->GetP1();
         xj = B_Strut->GetP0();
 
         xij = s[xj] - s[xi];
-        lij = xij.norm();
+        lij = xij.norm() / 100;
         uij = xij.normalize();
 
         tempf = B_Strut->GetK() * (lij - B_Strut->GetL0()) * uij;
@@ -312,11 +313,8 @@ void CalcForces(State s, double  t, double m) {
             tempf = env.Mass * (env.G + env.Viscosity * (env.Wind - s[i + statesize]));
 
         Forces[i] = Forces[i] + tempf;
+        //cout << Forces[i] << endl;
     }
-
-    // apply a force to ONE point..and see what happens...
-    Forces[0] = Forces[0] + 1;
-    Forces[1] = Forces[0] + 1;
 
 }
 
@@ -330,8 +328,13 @@ State F(State s, double m, double t) {
     CalcForces(s, t, m);
 
     for (i = 0; i < nmaxp; i++) {
-        x[i] = s[nmaxp + i]  + Displace(-5, 6);
-        x[nmaxp + i] = (1 / m) * Forces[i];
+        if(i == 0) x[i] = Butterfly->getVert(0);
+        else
+            x[i] = s[nmaxp + i]  + Displace(-5, 6);
+
+        if(i == 0) x[i].set(0,0,0);
+        else
+            x[nmaxp + i] = (1 / m) * Forces[i];
     }
 
     return x;
@@ -350,8 +353,8 @@ State RK4(State s, double m, double t, double ts) {
     //cout << "k3" << endl;
     //k3.PrintState();
     k4 = F(s + k3, m, t + ts) * ts;
-    //cout << "k4" << endl;
-    //k4.PrintState();
+   // cout << "k4" << endl;
+   // k4.PrintState();
 
     return (s + ((k1 + (k2*2) + (k3*2) + k4) * (.1666)));
 }
@@ -412,10 +415,11 @@ void TimerCallback(int){
 void LoadParameters(char *filename, char *objfile){
 
     FILE *paramfile;
-    double psize, k, d, m;
-    int i, vertcnt, facecnt, suffix;
-    float l01, l12, l20;
-    int v0, v1, v2;
+    double psize, kw, dw, m, kb, db;
+    int i, j, vertcnt, edgecnt, suffix, tempegid;
+    float l;
+    Vector2d tempedge;
+    char *tempgrpname;
 
     if((paramfile = fopen(filename, "r")) == NULL){
         fprintf(stderr, "error opening parameter file %s\n", filename);
@@ -436,9 +440,11 @@ void LoadParameters(char *filename, char *objfile){
     ObjFilename = objfile;
 
     // init the param file....
-    if(fscanf(paramfile, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",
-              &TimeStep, &k, &d, &m, &(env.G.x), &(env.G.y), &(env.G.z),
-              &(env.Wind.x), &(env.Wind.y), &(env.Wind.z), &(env.Viscosity)) != 11){
+    if(fscanf(paramfile, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",
+              &TimeStep, &kw, &dw, &kb, &db, &m, &(env.G.x), &(env.G.y), &(env.G.z),
+              &(env.Wind.x), &(env.Wind.y), &(env.Wind.z), &(env.Viscosity),
+              &(TopLV.x), &(TopLV.y), &(TopLV.z),
+              &(TopRV.x), &(TopRV.x), &(TopRV.x))  != 19){
         fprintf(stderr, "error reading parameter file %s\n", filename);
         fclose(paramfile);
         exit(1);
@@ -460,26 +466,25 @@ void LoadParameters(char *filename, char *objfile){
     // Set State from PolySurf - Butterfly
     // Need to figure out what to do with velocity...
     vertcnt = Butterfly->getVertCnt();
-    facecnt = Butterfly->getFaceCnt();
+    edgecnt = Butterfly->getEdgeCnt();
 
     B_State.SetSize(vertcnt);
-    B_Strut = new Strut[facecnt * 3];
+    B_Strut = new Strut[edgecnt];
 
     for(i = 0; i < vertcnt; i++)
         B_State.AddState(i, Butterfly->getVert(i), Vector(0,0,0));
 
-    for(i = 0; i < facecnt; i++) {
-        v0 = Butterfly->getFaces(i).getVertNdx(0);
-        v1 = Butterfly->getFaces(i).getVertNdx(1);
-        v2 = Butterfly->getFaces(i).getVertNdx(2);
+    for(i = 0; i < edgecnt; i++) {
+        tempedge = Butterfly->getEdge(i);
+        tempegid =  Butterfly->getEdgeGrp(i);
+        tempgrpname = Butterfly->getGroup(tempegid).getName();
 
-        l01 = (Butterfly->getVert(v1)-Butterfly->getVert(v0)).norm();
-        l12 = (Butterfly->getVert(v2)-Butterfly->getVert(v1)).norm();
-        l20 = (Butterfly->getVert(v0)-Butterfly->getVert(v2)).norm();
+        l = ((Butterfly->getVert(tempedge.y) - Butterfly->getVert(tempedge.x)).norm()) / 100;
 
-        B_Strut[3*i].SetStrut(k, d, l01, v0, v1);
-        B_Strut[3*i + 1].SetStrut(k, d, l12, v1, v2);
-        B_Strut[3*i + 2].SetStrut(k, d, l20, v2, v0);
+        if(strcmp(tempgrpname, "bottomWings") == 0 || strcmp(tempgrpname, "topWings") == 0)
+            B_Strut[i].SetStrut(kw, dw, l, tempedge.x, tempedge.y, 1);
+        else
+            B_Strut[i].SetStrut(kb, db, l, tempedge.x, tempedge.y, 0);
     }
 
     // init forces...
@@ -487,9 +492,17 @@ void LoadParameters(char *filename, char *objfile){
 
     // final initializations:
     env.Mass = (float) m / vertcnt;
-
     TimerDelay = int(0.5 * TimeStep * 1000);
-    for(i = 0; i < facecnt * 3; i++) B_Strut[i].PrintStrut();
+
+    filebuf buf;
+    buf.open(("test_butterfy_log"), ios::out);
+    streambuf* oldbuf = cout.rdbuf( &buf ) ;
+    cout << "Butterfly Data: " << *Butterfly << endl;
+    cout << endl << "Strut Data: " << endl;
+    for(i = 0; i < edgecnt; i++) { cout << "i : ";  B_Strut[i].PrintStrut(); }
+    cout << endl << "Initialized State Vector: " << endl;
+    B_State.PrintState();
+    cout.rdbuf(oldbuf);
 }
 
 //
@@ -705,8 +718,6 @@ void handleKey(unsigned char key, int x, int y){
 
     case 's':
     case 'S':
-        cout << Stepped << endl;
-        cout << Stopped << endl;
       Stepped = !Stepped;
       break;
 

@@ -33,6 +33,10 @@ private:
   int ngroups, maxgroups;
   Group *groups;
   int nmaterials, maxmaterials;
+  Vector2d *edges;
+  int *edgegrps;
+  int mneg, neg;
+  int nedges, maxedges;
   Material *materials;
 
 public:
@@ -43,6 +47,7 @@ public:
   void addNormal(const Vector3d &n);
   Vector3d computeNormal(int face);
   void addUV(const Vector2d &u);
+  void addEdge(const Vector2d &e, int groupid);
 
   void addPoint(int p);
 
@@ -76,6 +81,10 @@ public:
   Material getMat(int ndx) { return materials[ndx]; }
   int getNMaterials() { return nmaterials; }
   int getVertCnt() { return nverts; }
+  Vector2d getEdge(int indx) { return edges[indx]; }
+  int getEdgeCnt() { return nedges; }
+  int getEdgeGrp(int indx) { return edgegrps[indx]; }
+  Group getGroup(int indx) { return groups[indx]; }
 
   void addFaceMaterial(int f, int m);
 

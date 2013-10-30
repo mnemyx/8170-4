@@ -17,12 +17,13 @@ class Strut {
         float L0;
         int P0;
         int P1;
+        int HasSprings;
 
 	public:
         Strut();
-        Strut(double k, double d, float l0, int p0, int p1);
+        Strut(double k, double d, float l0, int p0, int p1, int grpid);
 
-        void SetStrut(double k, double d, float l0, int p0, int p1);
+        void SetStrut(double k, double d, float l0, int p0, int p1, int grpid);
 
         void SetK(double k) { K = k; }
         void SetD(double d) { D = d; }
@@ -34,6 +35,7 @@ class Strut {
         float GetL0() { return L0; }
         int GetP0() { return P0; }
         int GetP1() { return P1; }
+        int IsStrut() { return HasSprings; }
 
 		void PrintStrut();          // debugging
 };
