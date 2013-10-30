@@ -20,8 +20,8 @@ else
   endif
 endif
 
-HFILES 	= File.${H} OBJFile.${H} MTLFile.${H} ImageFile.${H} PolySurf.${H} Face.${H} Line.${H} Group.${H} Material.${H} Color.${H} Pixmap.${H} MakeSpace.${H} Matrix.${H} Vector.${H} Utility.${H} Model.${H} Attributes.${H} Entity.${H} gauss.${H} Particle.${H} Pmanager.${H} Pgenerator.${H} State.${H}
-OFILES 	= File.o OBJFile.o MTLFile.o ImageFile.o PolySurf.o Face.o Line.o Group.o Material.o Pixmap.o Color.o Matrix.o Vector.o Utility.o Model.o  Attributes.o Entity.o gauss.o Particle.o Pmanager.o Pgenerator.o State.o
+HFILES 	= File.${H} OBJFile.${H} MTLFile.${H} ImageFile.${H} PolySurf.${H} Face.${H} Line.${H} Group.${H} Material.${H} Color.${H} Pixmap.${H} MakeSpace.${H} Matrix.${H} Vector.${H} Utility.${H} gauss.${H} Strut.${H} State.${H}
+OFILES 	= File.o OBJFile.o MTLFile.o ImageFile.o PolySurf.o Face.o Line.o Group.o Material.o Pixmap.o Color.o Matrix.o Vector.o Utility.o gauss.o Strut.o State.o
 PROJECT = particles
 
 ${PROJECT}:	${PROJECT}.o $(OFILES)
@@ -33,24 +33,12 @@ ${PROJECT}.o: ${PROJECT}.${C} $(HFILES)
 State.o: State.${C} State.${H}
 	${CC} ${CFLAGS} -c ${INCFLAGS} State.${C}
 
-Pgenerator.o: Pgenerator.${C} Pgenerator.${H}
-	${CC} ${CFLAGS} -c ${INCFLAGS} Pgenerator.${C}
-
-Pmanager.o: Pmanager.${C} Pmanager.${H}
-	${CC} ${CFLAGS} -c ${INCFLAGS} Pmanager.${C}
-
-Particle.o: Particle.${C} Particle.${H}
-	${CC} ${CFLAGS} -c ${INCFLAGS} Particle.${C}
+Strut.o: Strut.${C} Strut.${H}
+	${CC} ${CFLAGS} -c ${INCFLAGS} Strut.${C}
 
 gauss.o: gauss.${C} gauss.${H}
 	${CC} ${CFLAGS} -c ${INCFLAGS} gauss.${C}
 
-Entity.o: Entity.${C} Entity.${H}
-	${CC} ${CFLAGS} -c ${INCFLAGS} Entity.${C}
-
-Attributes.o: Attributes.${C} Attributes.${H}
-	${CC} ${CFLAGS} -c ${INCFLAGS} Attributes.${C}
-	
 File.o:  File.${C} File.${H}
 	${CC} ${CFLAGS} -c File.${C}
 
@@ -60,7 +48,7 @@ OBJFile.o:  OBJFile.${C} File.${H} OBJFile.${H} MTLFile.${H} Vector.${H} Utility
 MTLFile.o:  MTLFile.${C} File.${H} MTLFile.${H} ImageFile.${H} Color.${H} PolySurf.${H} Pixmap.${H}
 	${CC} ${CFLAGS} -c MTLFile.${C}
 
-ImageFile.o:  ImageFile.${C} File.${H} ImageFile.${H} Pixmap.${H} 
+ImageFile.o:  ImageFile.${C} File.${H} ImageFile.${H} Pixmap.${H}
 	${CC} ${CFLAGS} -c ImageFile.${C}
 
 PolySurf.o:  PolySurf.${C} PolySurf.${H} Pixmap.${H} Vector.${H} Utility.${H}  MakeSpace.${H}
@@ -78,14 +66,11 @@ Group.o:  Group.${C} Group.${H} MakeSpace.${H}
 Material.o:  Material.${C} Material.${H} Color.${H} Pixmap.${H} Vector.${H} Utility.${H}
 	${CC} ${CFLAGS} -c Material.${C}
 
-Pixmap.o:  Pixmap.${C} Pixmap.${H} 
+Pixmap.o:  Pixmap.${C} Pixmap.${H}
 	${CC} ${CFLAGS} -c Pixmap.${C}
 
-Color.o:  Color.${C} Color.${H} 
+Color.o:  Color.${C} Color.${H}
 	${CC} ${CFLAGS} -c Color.${C}
-	
-Model.o: Model.${C} Model.${H}
-	${CC} ${CFLAGS} -c ${INCFLAGS} Model.${C}
 
 Matrix.o: Matrix.${C} Matrix.${H} Vector.${H} Utility.${H}
 	${CC} $(CFLAGS) -c Matrix.${C}

@@ -1,6 +1,6 @@
 /*
  *  PolySurf.h
- *  
+ *
  *
  *  Created by Donald House on 2/18/11.
  *  Copyright 2011 Clemson University. All rights reserved.
@@ -38,12 +38,12 @@ private:
 public:
   PolySurf();
   ~PolySurf();
-  
+
   void addVertex(const Vector3d &v);
   void addNormal(const Vector3d &n);
   Vector3d computeNormal(int face);
   void addUV(const Vector2d &u);
-  
+
   void addPoint(int p);
 
   int newFace(int g, int m);
@@ -51,10 +51,10 @@ public:
 
   int newLine();
   void addLinePoint(int l, int p);
-  
+
   int setGroup(char *gname);
   void addFaceGroup(int f, int g);
-  
+
   int newMaterial(char *mname);
   int idxMaterial(char *mname);
 
@@ -75,16 +75,17 @@ public:
   Vector2d getUV(int ndx) { return uvs[ndx]; }
   Material getMat(int ndx) { return materials[ndx]; }
   int getNMaterials() { return nmaterials; }
+  int getVertCnt() { return nverts; }
 
   void addFaceMaterial(int f, int m);
 
   Vector3d Centroid();
   Vector3d MinBBox();
   Vector3d MaxBBox();
-  
+
   void DrawPoints();
   void Draw(int wireframe);
-  
+
   friend ostream& operator<< (ostream& os, const PolySurf& ps);
 };
 

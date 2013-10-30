@@ -21,11 +21,11 @@ DESCRIPTION
 
 	Color/Face/File/Group/ImageFile/Line/MakeSpace/Material
 	MTLFile/OBJFile/Pixmap/PolySurf by Dr. House
-	These were re-used from CpSc 405 - Spring 2011's Hwk #6 
+	These were re-used from CpSc 405 - Spring 2011's Hwk #6
 
 	OBJ/MTL files generated in Maya
 
-	Usage: particles [param_filename]
+	Usage: particles [param_filename] [obj_file.obj]
 
 
 KEY COMMANDS
@@ -33,17 +33,6 @@ KEY COMMANDS
 	m or M		IMPORTANT: transforming camera view to simulation control (default: camera)
 	p or P		switches from ortho to perspective views (default: perspective)
 	r or R      	resets the simulation, so if you change parameters - this will re-read them
-	1 to 0		should trigger a dispersing force
-				1 = +X, +Y, +Z quadrant
-				2 = +X, -Y, +Z quadrant
-				3 = -X, -Y, +Z quadrant
-				4 = -X, +Y, +Z quadrant
-				5 = +X, +Y, -Z quadrant
-				6 = +X, -Y, -Z quadrant
-				7 = -X, -Y, -Z quadrant
-				8 = -X, +Y, -Z quadrant
-				9 = random point...somewhere...over the rainbow
-				0 = center of dispersal force is (0,0,0)
 	q or ESC	quit
 
 
@@ -71,13 +60,6 @@ FILES
 	particles.cpp (main program)
 	State.cpp, State.h
 	Struts.cpp, Struts.h
-	Butterfly.cpp, Butterfly.h
-	Model.cpp, Model.h
-	Entity.cpp, Entity.h
-	Attributes.cpp, Attributes.h
-	Pgenerator.cpp, Pgenerator.h
-	Pmanager.cpp, Pmanager.h,
-	Particle.cpp, Particle.h
 
 
 MISC FILES

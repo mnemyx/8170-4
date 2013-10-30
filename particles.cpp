@@ -1,19 +1,20 @@
 /********************************************************
   particles.cpp
 
-  CPSC8170 - Proj 2   GBG   9/2013
+  CPSC8170 - Proj 4   GBG   10/2013
 *********************************************************/
-
-#include "Pmanager.h"
-#include "Pgenerator.h"
-#include "Entity.h"
-#include "time.h"
 
 #include <cstdlib>
 #include <cstdio>
 #include <sstream>
 #include <iostream>
 #include <fstream>
+
+#include "time.h"
+#include "OBJFile.h"
+#include "PolySurf.h"
+#include "State.h"
+#include "Strut.h"
 
 #ifdef __APPLE__
 #  include <GLUT/glut.h>
@@ -88,24 +89,24 @@ static double WinWidth = WINDOW_WIDTH;
 static double WinHeight = WINDOW_HEIGHT;
 static int MiddleButton = false;
 
-
 /********************** FOR THE ACTUAL SIMULATION ********************/
 int FrameNumber = 0;
 
 void TimerCallback(int value);
 
 static char *ParamFilename = NULL;
+static char *ObjFilename = NULL;
 
 static double TimeStep;
 static double DispTime;
 static int TimerDelay;
 
+static int Stopped = true;
+static int Started = true;
+static int Stepped = false;
+
 static double Time = 0;
 static int NTimeSteps = -1;
-
-Pmanager Manager;
-Pgenerator Generator1;
-Pgenerator Generator2;
 
 struct Env {
     Vector3d G;
@@ -113,69 +114,125 @@ struct Env {
     double Viscosity;
  } env;
 
-static int ProcessClick = 0;
-static int Quadrant = -1;
+static int Resting = false;
+
+static int Wireframe = true;
 
 /***********************  avoidance constants *********************/
 double Ka = 1;
 double Kv = .5;
 double Kc = .75;
 
+
+/******************** OBJ/MTL RELATED VARIABLES *******************/
+static OBJFile Objfile;
+static PolySurf *Butterfly;	      // polygonal surface data structure
+static Vector3d B_Centroid, B_Bboxmin, B_Bboxmax;
+static State B_State;
+static Strut *B_Strut;
+
+/** Texture map to be used by program **/
+static GLuint* TextureID;	    		// texture ID from OpenGL
+
+
+
 /************** DRAWING & SHADING FUNCTIONS ***********************/
 //
-// Get the shading setup for the objects
+// Draw butterfly
 //
-void GetShading(int hueIndx) {
-  float ambient_color[4];
-  float diffuse_color[4];
-  float specular_color[4];
-  int shininess;
+void DrawModel() {
+    int op = (Wireframe? GL_LINE_LOOP: GL_POLYGON);
+	Vector3d tempVert, normal;
+	Vector2d textCoords;
+	float ambient_color[4];
+	float diffuse_color[4];
+	float specular_color[4];
+	int shininess;
+	Material m;
 
-    // set up material colors to current hue.
-    for(int i = 0; i < 3; i++)
-      ambient_color[i] = diffuse_color[i] = specular_color[i] = 0;
+	// for each of the defined faces...
+	for(int i = 0; i < Butterfly->getFaceCnt(); i++) {
+		if(!Wireframe) {
+			// do the material attached to the face...
+			m = Butterfly->getMat(Butterfly->getFaces(i).getMatNdx());
 
-	for(int i = 0; i < 3; i++) {
-		ambient_color[i] = AMBIENT_FRACTION * hues[hueIndx][i];
-		diffuse_color[i] = DIFFUSE_FRACTION * hues[hueIndx][i];
-		specular_color[i] = SPECULAR_FRACTION * hues[0][i];
-		shininess = 0;
+			for(int k = 0; k < 4; k++) {
+				ambient_color[k] = m.a[k];
+				diffuse_color[k] = m.d[k];
+				specular_color[k] = m.a[k];
+			}
+
+			shininess = m.n;
+
+			switch(m.illum_model) {
+				case 0:
+					glMaterialfv(GL_FRONT, GL_DIFFUSE, diffuse_color);
+					break;
+				case 1:
+					glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_color);
+					glMaterialfv(GL_FRONT, GL_DIFFUSE, diffuse_color);
+					break;
+				case 2:
+					glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_color);
+					glMaterialfv(GL_FRONT, GL_DIFFUSE, diffuse_color);
+					glMaterialfv(GL_FRONT, GL_SPECULAR, specular_color);
+					glMaterialf(GL_FRONT, GL_SHININESS, shininess);
+					break;
+			}
+
+			if(m.dmap || m.amap || m.smap){
+				glEnable(GL_TEXTURE_2D);
+				glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+				glBindTexture(GL_TEXTURE_2D, TextureID[Butterfly->getFaces(i).getMatNdx()]);	    // set the active texture
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+			    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+			}
+		}
+
+		glBegin(op);
+		if(!Wireframe) {
+			// do normal stuff (glNormal3f)
+			if(Butterfly->getFaces(i).getNormNdx(0) != -1) {
+				normal = Butterfly->getNorm(Butterfly->getFaces(i).getNormNdx(0));
+			} else {
+				normal = Butterfly->computeNormal(i);
+			}
+			glNormal3f(normal.x, normal.y, normal.z);
+		}
+
+		// do the regular vertices for each face...
+		for(int j = 0; j < Butterfly->getFaces(i).getFaceVertCnt(); j++) {
+
+			if(Butterfly->getFaces(i).getUVNdx(j) != -1) {
+				textCoords = Butterfly->getUV(Butterfly->getFaces(i).getUVNdx(j));
+				glTexCoord2f(textCoords[0], textCoords[1]);
+			}
+
+			tempVert = Butterfly->getVert(Butterfly->getFaces(i).getVertNdx(j));
+			glVertex3f(tempVert.x, tempVert.y, tempVert.z);
+		}
+		glEnd();
 	}
-
-    glMaterialfv(GL_FRONT, GL_AMBIENT, ambient_color);
-    glMaterialfv(GL_FRONT, GL_DIFFUSE, diffuse_color);
-    glMaterialfv(GL_FRONT, GL_SPECULAR, specular_color);
-    glMaterialf(GL_FRONT, GL_SHININESS, shininess);
-}
-
-//
-// Draw the moving objects
-//
-void DrawMovingObj() {
-    GetShading(2);
-    Manager.DrawSystem(NTimeSteps%2);
-}
-
-//
-// Draw the non moving objects
-//
-void DrawNonMovingObj() {
-    Generator1.DrawGenerator();
 }
 
 //
 //  Draw the ball, its traces and the floor if needed
 //
-void DrawScene(int collision){
-
-  int i,j;
-  Model p;
+void DrawScene(){
 
   glClear(GL_COLOR_BUFFER_BIT);
   glClear(GL_DEPTH_BUFFER_BIT);
 
-  //DrawNonMovingObj();
-  DrawMovingObj();
+  double scaleBy = (DRAWHEIGHT/2) / (B_Bboxmax.y - B_Bboxmin.y);
+
+  glPushMatrix();
+  glScalef(scaleBy, scaleBy, scaleBy);
+  glTranslatef(-B_Centroid.x, -B_Centroid.y, -B_Centroid.z);
+  DrawModel();
+  glPopMatrix();
 
   glutSwapBuffers();
 }
@@ -270,37 +327,6 @@ Vector3d Accelerate(State s, double  t, double m, int indx) {
 
         //acc.y = 0;
 
-        if(ProcessClick) {
-            //cout << "processing click" << endl;
-            ProcessClick = false;
-
-            double cpd;
-            Vector3d cpu, cpacc, cpcen;
-            double cpg = -10;
-
-            switch(Quadrant) {
-                case 0: cpcen.set(0,0,0); break;
-                case 1: cpcen.set(40,40,40); break;
-                case 2: cpcen.set(40,-40,40); break;
-                case 3: cpcen.set(-40,-40,40); break;
-                case 4: cpcen.set(-40,40,40); break;
-                case 5: cpcen.set(40,40,-40); break;
-                case 6: cpcen.set(40,-40,-40); break;
-                case 7: cpcen.set(-40,-40,-40); break;
-                case 8: cpcen.set(-40,40,-40); break;
-                case 9: cpcen.set(Displace(-80, 81)); break;
-                default: cpcen.set(Displace(-80, 81)); break;
-            }
-
-            cpd = (s[indx] - cpcen).norm();
-            cpu = (s[indx] - cpcen).normalize();
-
-            if (cpd < 20) {
-                cpacc = - cpg * (1/(cpd*cpd)) * cpu;
-                acc = acc + cpacc;
-            }
-        }
-
     } else {
 
         //point attractor at center
@@ -365,27 +391,7 @@ State F(State s, double m, double t) {
     x.SetSize(nmaxp);
 
     for (i = 0; i < nmaxp; i++) {
-        //if(i == 0) { // our guiding boid
-            //x[i] = s[nmaxp + i];
-
-            // steering force = desired velocity - current velocity
-            // what would the resulting velocity if the collision were to occur?
-            // pure reflection of the current velocity could work.
-
-            //  lissajous:
-            //      ampA * sin(freqA * t + phasephi),
-            //      ampB * sin(freqB * t + phasetri),
-            //      ampC * sin(freqC * t + phasex)
-
-            //x[i].x = x[i].x + (100 * (sin(1.5 * t + 30)));
-            //x[i].y = x[i].y + (20 * (sin(.5 * t + 90)));
-            //x[i].z = x[i].z + (100 * (sin(1 * t + 30)));
-
-        //} else {
-            x[i] = s[nmaxp + i]  + Displace(-5, 6);
-
-        //}
-
+        x[i] = s[nmaxp + i]  + Displace(-5, 6);
         x[nmaxp + i] = (1 / m) * Accelerate(s, t, m, i);
     }
 
@@ -420,26 +426,8 @@ void Simulate(){
     int i, j;
 
     // don't do anything if our simulation is stopped
-    if(Manager.IsStopped()) {
+    if(Stopped) {
         return;
-    }
-
-    //cout << "ADDING!! " << endl;
-    // generate particles if we can
-    if(Manager.HasFreeParticles()) {
-    //cout << "Manager.FreePLeft(): " << Manager.FreePLeft() << endl;
-        for(i = 0; i < Manager.GetMaxParticles(); i++) {
-            Generator1.GenerateAttr(0);
-            Generator2.GenerateAttr(0);
-            if(i == 0)
-            Manager.UseParticle(Vector(25, 5,0), Vector(2,0,0), Time, Vector(1,0,0,1), .0005, Generator1.GetCoefff(), Generator1.GetCoeffr(), false);
-            else {
-                if( i < (Manager.GetMaxParticles()/2) )
-                Manager.UseParticle(Generator1.GenC0(), Vector(1,0,0), Time, Generator1.GenCol(), .0005, Generator1.GetCoefff(), Generator1.GetCoeffr(), false);
-                else
-                Manager.UseParticle(Generator2.GenC0(), Vector(1,0,0), Time, Generator1.GenCol(), .0005, Generator1.GetCoefff(), Generator1.GetCoeffr(), false);
-            }
-        }
     }
 
     //filebuf buf;
@@ -448,8 +436,8 @@ void Simulate(){
 
     //Manager.S.PrintState();
     //cout << "Before & After " << endl;
-    DrawScene(0);
-    Manager.S = RK4(Manager.S, 1, Time, TimeStep);
+    DrawScene();
+    //Manager.S = RK4(Manager.S, 1, Time, TimeStep);
    // Manager.S.PrintState();
     //cout.rdbuf(oldbuf);
 
@@ -460,10 +448,10 @@ void Simulate(){
 
     // set up time for next timestep if in continuous mode
     glutIdleFunc(NULL);
-    if(Manager.IsStep())
-        Manager.SetStopped(true);
+    if(Stepped)
+        Stopped = true;
     else{
-        Manager.SetStopped(false);
+        Stopped = false;
         glutTimerFunc(TimerDelay, TimerCallback, 0);
     }
 
@@ -480,53 +468,98 @@ void TimerCallback(int){
 //
 //  Load parameter file and reinitialize global parameters
 //
-void LoadParameters(char *filename){
+void LoadParameters(char *filename, char *objfile){
 
     FILE *paramfile;
-
-    double psize;
+    double psize, k, d;
+    int i, vertcnt, facecnt, suffix;
+    float l01, l12, l20;
+    int v0, v1, v2;
 
     if((paramfile = fopen(filename, "r")) == NULL){
         fprintf(stderr, "error opening parameter file %s\n", filename);
         exit(1);
     }
 
-    ParamFilename = filename;
+    // init the objfile
+    suffix = strlen(objfile) - 4;
 
-    if(fscanf(paramfile, "%lf %lf", &TimeStep, &psize)!= 2){
+    if(strcmp(&(objfile[suffix]), ".obj") != 0) {
+        fprintf(stderr, "obj file must end in .obj: %s\n", objfile);
+        exit(1);
+    }
+
+    Objfile.setfilename(objfile);
+
+    ParamFilename = filename;
+    ObjFilename = objfile;
+
+    // init the param file....
+    if(fscanf(paramfile, "%lf %lf %lf", &TimeStep, &k, &d)!= 3){
         fprintf(stderr, "error reading parameter file %s\n", filename);
         fclose(paramfile);
         exit(1);
     }
 
-    Manager.SetMaxPart((int)psize, 1);
-
-    Generator1.SetBaseAttr(4, 0.0, 0.0, 0.0, 0.0, Vector(0,0,0,1), 0.0, 0.0, 0.0, 0.0);
-    Generator1.SetPlanePts(Vector(-80,-80,-10), Vector(-80,60,-10), Vector(80,80,-10), Vector(80,-80,-10));
-    Generator1.SetModel();
-
-    Generator2.SetBaseAttr(4, 0.0, 0.0, 0.0, 0.0, Vector(0,0,0,1), 0.0, 0.0, 0.0, 0.0);
-    Generator2.SetPlanePts(Vector(80,80,-10), Vector(80,-60,-10), Vector(-80,-80,-10), Vector(-80,80,-10));
-    Generator2.SetModel();
-
+    // init the environmental variables
     env.G.set(0,0,0);
     env.Wind.set(0,0,0);
     env.Viscosity = 0;
 
     TimerDelay = int(0.5 * TimeStep * 1000);
+
+    // init the obj file
+    int err = Objfile.read();
+    Butterfly = Objfile.getscene();
+
+    if(err || Butterfly == NULL){
+        cerr << "OBJ file " << objfile << " has errors" << endl;
+        exit(2);
+    }
+
+    B_Centroid = Butterfly->Centroid();
+    B_Bboxmin = Butterfly->MinBBox();
+    B_Bboxmax = Butterfly->MaxBBox();
+
+    // Set State from PolySurf - Butterfly
+    // Need to figure out what to do with velocity...
+    vertcnt = Butterfly->getVertCnt();
+    facecnt = Butterfly->getFaceCnt();
+
+    B_State.SetSize(vertcnt);
+    B_Strut = new Strut[facecnt * 3];
+
+    for(i = 0; i < vertcnt; i++)
+        B_State.AddState(i, Butterfly->getVert(i), Vector(0,0,0));
+
+    for(i = 0; i < facecnt; i++) {
+        v0 = Butterfly->getFaces(i).getVertNdx(0);
+        v1 = Butterfly->getFaces(i).getVertNdx(1);
+        v2 = Butterfly->getFaces(i).getVertNdx(2);
+
+        l01 = (Butterfly->getVert(v1)-Butterfly->getVert(v0)).norm();
+        l12 = (Butterfly->getVert(v2)-Butterfly->getVert(v1)).norm();
+        l20 = (Butterfly->getVert(v0)-Butterfly->getVert(v2)).norm();
+
+        B_Strut[3*i].SetStrut(k, d, l01, v0, v1);
+        B_Strut[3*i + 1].SetStrut(k, d, l12, v1, v2);
+        B_Strut[3*i + 2].SetStrut(k, d, l20, v2, v0);
+    }
+
+    //for(i = 0; i < facecnt * 3; i++) B_Strut[i].PrintStrut();
 }
 
 //
-// Routine to restart the ball at the top
+// Routine to restart simulation
 //
 void RestartSim(){
 
-  LoadParameters(ParamFilename); // reload parameters in case changed
+  LoadParameters(ParamFilename, ObjFilename); // reload parameters in case changed
 
   glutIdleFunc(NULL);
   Time = 0;
   NTimeSteps = -1;
-  DrawScene(0);
+  DrawScene();
 }
 
 
@@ -536,12 +569,12 @@ void RestartSim(){
 //
 void InitSimulation(int argc, char* argv[]){
 
-  if(argc != 2){
-    fprintf(stderr, "usage: particles paramfile\n");
+  if(argc != 3){
+    fprintf(stderr, "usage: particles paramfile butterfly.obj\n");
     exit(1);
   }
 
-  LoadParameters(argv[1]);
+  LoadParameters(argv[1], argv[2]);
 
   Time = 0;
   NTimeSteps = -1;
@@ -559,8 +592,6 @@ void InitCamera() {
   glDisable(GL_DEPTH_TEST);
   glDisable(GL_BLEND);
 
-  MenuAttached = false;
-
   Pan = 0;
   Tilt = 0;
   Approach = DEPTH;
@@ -574,8 +605,8 @@ void InitCamera() {
 //  On Redraw request, erase the window and redraw everything
 //
 void drawDisplay(){
-  const float light_position1[] = {-1, -3, -1, 1};
-  const float light_position2[] = {1, 3, 1, 0};
+  const float light_position1[] = {-1, 1, -1, 1};
+  const float light_position2[] = {1, 1, 1, 1};
 
   // clear the window to the background color
   glClear(GL_COLOR_BUFFER_BIT);
@@ -608,7 +639,7 @@ void drawDisplay(){
   glRotatef(ThetaY, 0, 1, 0);       // rotate model about x axis
   glRotatef(ThetaX, 1, 0, 0);       // rotate model about y axis
 
-  DrawScene(0);
+  DrawScene();
 
   glutSwapBuffers();
 }
@@ -625,7 +656,6 @@ void updateProjection(){
   // determine the projection system and drawing coordinates
   if(Projection == ORTHO)
     glOrtho(-DRAWWIDTH/2, DRAWWIDTH/2, -DRAWHEIGHT/2, DRAWHEIGHT/2, NEAR, FAR);
-    //glOrtho(0, DRAWWIDTH, 0, DRAWHEIGHT, NEAR, FAR);
   else{
     // scale drawing coords so center of cube is same size as in ortho
     // if it is at its nominal location
@@ -633,7 +663,6 @@ void updateProjection(){
     double xmax = scale * DRAWWIDTH / 2;
     double ymax = scale * DRAWHEIGHT / 2;
     glFrustum(-xmax, xmax, -ymax, ymax, NEAR, FAR);
-    //glFrustum(0.0, xmax * 2, 0.0, xmax * 2, NEAR, FAR);
   }
 
   // restore modelview matrix as the one being updated
@@ -671,7 +700,6 @@ void AdjustMouse(int& x, int& y){
 //  Watch mouse motion
 //
 void handleMotion(int x, int y){
-  if(!MenuAttached) {
     int delta;
 
     y = -y;
@@ -698,115 +726,20 @@ void handleMotion(int x, int y){
 
     MouseX = x;
     MouseY = y;
-  }
 }
 
 //
 //  Watch mouse button presses and handle them
 //
 void handleButton(int button, int state, int x, int y){
-
-  if(MenuAttached) {
-
-    if(button == GLUT_MIDDLE_BUTTON)
-      MiddleButton = (state == GLUT_DOWN);
-
-    if(button != GLUT_LEFT_BUTTON)
-      return;
-
-    AdjustMouse(x, y);	/* adjust mouse coords to current window size */
-
-    if(state == GLUT_UP){
-      if(Manager.IsStarted()){
-        Manager.SetStarted(false);
-        Manager.SetStopped(false);
-        // need to re-initialize...should move to key press?
-        DrawScene(0);
-        glutIdleFunc(Simulate);
-      }
-      else if(Manager.IsStopped()){
-        Manager.SetStopped(false);
-        glutIdleFunc(Simulate);
-      }
-      else{
-        Manager.SetStopped(true);
-        glutIdleFunc(NULL);
-      }
-    }
-  } else {
-
     if(state == GLUT_UP)
       Button = NONE;		// no button pressed
-    else{
+    else {
       MouseY = -y;			// invert y window coordinate to correspond with OpenGL
       MouseX = x;
 
       Button = button;		// store which button pressed
-
-        // attempting interactive mode...
-        /**
-        GLint viewport[4];
-            glGetIntegerv(GL_VIEWPORT, viewport);
-        GLdouble modelview[16];
-            glGetDoublev(GL_MODELVIEW_MATRIX, modelview);
-        GLdouble projection[16];
-            glGetDoublev(GL_PROJECTION_MATRIX, projection);
-        GLfloat winX, winY, winZ;
-
-        AdjustMouse(x, y);
-        winX = (float)x;
-        winY = (float)y;
-        glReadPixels(winX, winY, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &winZ);
-
-        GLdouble posX, posY, posZ;
-
-        gluUnProject(winX, winY, winZ, modelview, projection, viewport, &posX, &posY, &posZ);
-
-        ProcessClick = true;
-        ClickXYZ.set(posX/2,posY/2,posZ/2);
-
-        cout << ClickXYZ << endl;
-        **/
-
     }
-
-  }
-}
-
-//
-//  Menu callback
-//
-void HandleMenu(int index){
-
-  switch(index){
-
-  case MenuContinuous:
-    if(Manager.IsStep()){
-      Manager.SetStep(false);
-      glutChangeToMenuEntry(index, "Step", index);
-    }
-    else{
-      Manager.SetStep(true);
-      glutChangeToMenuEntry(index, "Continuous", index);
-    }
-    break;
-
-  case MenuQuit:
-    exit(0);
-  }
-}
-
-//
-//  Set up pop-up menu on right mouse button
-//
-void MakeMenu(){
-  int id = glutCreateMenu(HandleMenu);
-
-  glutAddMenuEntry("Step", MenuContinuous);
-  glutAddMenuEntry("Quit", MenuQuit);
-
-  glutSetMenu(id);
-  glutAttachMenu(GLUT_RIGHT_BUTTON);
 }
 
 //
@@ -827,71 +760,48 @@ void handleKey(unsigned char key, int x, int y){
       glutPostRedisplay();
       break;
 
-    case 'm':
-    case 'M':
-      MenuAttached = !MenuAttached;
-      if(MenuAttached) { MakeMenu(); }
-      else glutDetachMenu(GLUT_RIGHT_BUTTON);
+    case 's':
+    case 'S':
+      Stepped = !Stepped;
       break;
 
-    case '1':
-      ProcessClick = true;
-      Quadrant = 1;
-      break;
+    case 'd':
+    case 'D':
+        if(Started) {
+            Started = false;
+            Stopped = false;
+            DrawScene();
+            glutIdleFunc(Simulate);
+        } else if(Stopped) {
+            Stopped = false;
+            glutIdleFunc(Simulate);
+        } else {
+            Stopped = true;
+            glutIdleFunc(NULL);
+        }
+        break;
 
-    case '2':
-      ProcessClick = true;
-      Quadrant = 2;
-      break;
+    case 'w':			// W -- toggle between wireframe and solid
+    case 'W':
+        Wireframe = !Wireframe;
 
-    case '3':
-      ProcessClick = true;
-      Quadrant = 3;
-      break;
+        if(Wireframe == false) {
+            glEnable(GL_LIGHTING);
+            glEnable(GL_DEPTH_TEST);
+        } else {
+            glDisable(GL_DEPTH_TEST);
+            glDisable(GL_LIGHTING);
+        }
 
-    case '4':
-      ProcessClick = true;
-      Quadrant = 4;
-      break;
-
-    case '5':
-      ProcessClick = true;
-      Quadrant = 5;
-      break;
-
-    case '6':
-      ProcessClick = true;
-      Quadrant = 6;
-      break;
-
-    case '7':
-      ProcessClick = true;
-      Quadrant = 7;
-      break;
-
-    case '8':
-      ProcessClick = true;
-      Quadrant = 8;
-      break;
-
-    case '9':
-      ProcessClick = true;
-      Quadrant = 9;
-      break;
-
-    case '0':
-      ProcessClick = true;
-      Quadrant = 0;
-      break;
+        glutPostRedisplay();
+        break;
 
     case 'r':
     case 'R':
-        Manager.KillAll();
         RestartSim();
       break;
     default:		// not a valid key -- just ignore it
       return;
-
   }
 
   glutPostRedisplay();
@@ -913,7 +823,7 @@ int main(int argc, char* argv[]){
   /* open window and establish coordinate system on it */
   glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA);
   glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
-  glutCreateWindow("I think I like butterflies too much (aka flocking simulation)");
+  glutCreateWindow("Springy Meshes: Butterfly Wings Simulation");
 
   /* register display and mouse-button callback routines */
   glutReshapeFunc(doReshape);
@@ -924,7 +834,6 @@ int main(int argc, char* argv[]){
 
   /* Set up to clear screen to black */
   glClearColor(BG[0], BG[1], BG[2], 0);
-
 
   glutMainLoop();
   return 0;

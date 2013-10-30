@@ -1,6 +1,8 @@
-.1          151
+.1
+.4      .4
 
 
 parameters format
 ===========================================
-timestep    #maxparticles
+timestep
+spring (K)  dampener (D)
