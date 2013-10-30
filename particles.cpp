@@ -112,28 +112,28 @@ struct Env {
     Vector3d G;
     Vector3d Wind;
     double Viscosity;
+    float Mass;
  } env;
 
 static int Resting = false;
-
 static int Wireframe = true;
+
+static State B_State;
+static Strut *B_Strut;
+static Vector3d *Forces;
 
 /***********************  avoidance constants *********************/
 double Ka = 1;
 double Kv = .5;
 double Kc = .75;
 
-
 /******************** OBJ/MTL RELATED VARIABLES *******************/
 static OBJFile Objfile;
 static PolySurf *Butterfly;	      // polygonal surface data structure
 static Vector3d B_Centroid, B_Bboxmin, B_Bboxmax;
-static State B_State;
-static Strut *B_Strut;
 
 /** Texture map to be used by program **/
 static GLuint* TextureID;	    		// texture ID from OpenGL
-
 
 
 /************** DRAWING & SHADING FUNCTIONS ***********************/
@@ -142,13 +142,18 @@ static GLuint* TextureID;	    		// texture ID from OpenGL
 //
 void DrawModel() {
     int op = (Wireframe? GL_LINE_LOOP: GL_POLYGON);
-	Vector3d tempVert, normal;
+	Vector3d tempVert, normal, x0, x1, x2;
 	Vector2d textCoords;
 	float ambient_color[4];
 	float diffuse_color[4];
 	float specular_color[4];
 	int shininess;
 	Material m;
+
+	glEnable(GL_LIGHTING);
+    glEnable(GL_SMOOTH);
+    glEnable(GL_BLEND);
+    glEnable(GL_DEPTH_TEST);
 
 	// for each of the defined faces...
 	for(int i = 0; i < Butterfly->getFaceCnt(); i++) {
@@ -195,11 +200,19 @@ void DrawModel() {
 		glBegin(op);
 		if(!Wireframe) {
 			// do normal stuff (glNormal3f)
+			/* below is original from objview, but need to consider the fact that particles are always moving
 			if(Butterfly->getFaces(i).getNormNdx(0) != -1) {
 				normal = Butterfly->getNorm(Butterfly->getFaces(i).getNormNdx(0));
 			} else {
 				normal = Butterfly->computeNormal(i);
-			}
+			} */
+
+			x0 = B_State[Butterfly->getFaces(i).getVertNdx(0)];
+            x1 = B_State[Butterfly->getFaces(i).getVertNdx(1)];
+            x2 = B_State[Butterfly->getFaces(i).getVertNdx(2)];
+
+            normal = (((x1-x0) % (x2-x0)).normalize());
+
 			glNormal3f(normal.x, normal.y, normal.z);
 		}
 
@@ -211,7 +224,7 @@ void DrawModel() {
 				glTexCoord2f(textCoords[0], textCoords[1]);
 			}
 
-			tempVert = Butterfly->getVert(Butterfly->getFaces(i).getVertNdx(j));
+			tempVert = B_State[Butterfly->getFaces(i).getVertNdx(j)];
 			glVertex3f(tempVert.x, tempVert.y, tempVert.z);
 		}
 		glEnd();
@@ -246,141 +259,65 @@ Vector3d Displace(int a, int b) {
     return temp;
 }
 
-Vector3d Accelerate(State s, double  t, double m, int indx) {
-    int nmaxp = s.GetSize();
-    Vector3d acc;
+void StrutForces(State s) {            // needs state, strut and forces
     Vector3d xij, uij;
-    Vector3d aaij, avij, acij, ai;
-    Vector3d yforce, xforce, zforce;
-    Vector3d ptu, ptacc, ptcenter;
-    double ptd, ptg;
+    float lij;
+    int i, xi, xj;
+    Vector3d tempf;
+
+    int statesize = s.GetSize();
+
+    // intialize all forces to 0
+    for(i = 0; i < statesize ; i++)
+        Forces[i].set(0.0,0.0,0.0);
+
+    // adding and calculating force - starting with spring and dampener
+    for (i = 0; i < Butterfly->getFaceCnt() * 3; i++) {
+        xi = B_Strut->GetP1();
+        xj = B_Strut->GetP0();
+
+        xij = s[xj] - s[xi];
+        lij = xij.norm();
+        uij = xij.normalize();
+
+        tempf = B_Strut->GetK() * (lij - B_Strut->GetL0()) * uij;
+
+        Forces[xi] = Forces[xi] + tempf;
+        Forces[xj] = Forces[xj] - tempf;
+
+        //cout << Forces[xj] << endl;
+        //cout << Forces[xi] << endl;
+
+        tempf = B_Strut->GetD() * ((s[xj + statesize] - s[xi + statesize]) * uij) * uij;
+
+        Forces[xi] = Forces[xi] + tempf;
+        Forces[xj] = Forces[xj] - tempf;
+
+        //cout << Forces[xj] << endl;
+        //cout << Forces[xi] << endl;
+    }
+}
+
+void CalcForces(State s, double  t, double m) {
+    StrutForces(s);
+
     int i;
-    double Dij, dij, aa, av, ac, amax, ares;
-    double r1 = 15.0;
-    double r2 = 30.0;
+    int statesize = s.GetSize();
+    Vector3d tempf;
 
-    if (env.Wind.x == 0 && env.Wind.y == 0 && env.Wind.z == 0)
-        acc = env.G - env.Viscosity * s[indx + nmaxp];
-    else
-        acc = env.G + env.Viscosity * (env.Wind - s[indx + nmaxp]);
-    //cout << "before ";
-    //acc.print();
-    //cout << endl;
+    for(i = 0; i < statesize ; i++) {
+        if (env.Wind.x == 0 && env.Wind.y == 0 && env.Wind.z == 0)
+            tempf = env.Mass * (env.G - env.Viscosity * s[i + statesize]);
+        else
+            tempf = env.Mass * (env.G + env.Viscosity * (env.Wind - s[i + statesize]));
 
-    if(indx != 0 ) {
-        for (i = 0; i < nmaxp; i++) {
-            if (i != indx) {
-
-                //cout << "i: " << i << " indx: " << indx << endl;
-                xij = s[i] - s[indx];
-                //cout << "s[i]: " << s[i] << endl;
-                //cout << "s[indx]: " << s[indx] << endl;
-                //cout << "xij " << xij << endl;
-
-                dij = xij.norm();
-                uij = xij.normalize();
-
-                if(dij < 40 || i == 0) {
-
-                    //cout << " dij: " << dij << endl;
-
-                    //if(i == 0) {
-                        //Dij = 1;
-                    //} else {
-                        if(dij <= r1) Dij = 1.0;
-                        else if (dij > r2) Dij = 0.0;
-                        else Dij = 1.0 - (dij - r1) / (r2 - r1);
-                    //}
-
-                    //cout << Dij << endl;
-
-                    if(i == 0) Kv = 0.0; else Kv = 1;
-                    aaij = -Dij/m * Ka/dij * uij;
-                    avij = Dij/m * Kv * (s[i + nmaxp] - s[indx + nmaxp]);
-                    acij = Dij/m * Kc * dij * uij;
-
-                    amax = 5.0;
-
-                    aa = min(aaij.norm(), amax);
-                    ares = amax - aa;
-
-                    if(ares > 0) {
-                        av = min(avij.norm(), ares);
-                        ares = ares - av;
-
-                        if(ares > 0) {
-                            ac = min(acij.norm(), ares);
-                        } else {
-                            ac = 0.0;
-                        }
-                    } else {
-                        av = 0.0;
-                    }
-
-                    ai = aa * uij + av * uij + ac * uij;
-
-                    acc = acc + ai;
-                }
-            }
-            //}
-        }
-
-        //acc.y = 0;
-
-    } else {
-
-        //point attractor at center
-        ptcenter.set(0,0,0);
-        ptd = (s[indx] - ptcenter).norm();
-        ptu = (s[indx] - ptcenter).normalize();
-        ptg = 5;
-
-
-        ptacc = - ptg * ptu;
-        acc = acc + ptacc;
-
+        Forces[i] = Forces[i] + tempf;
     }
 
+    // apply a force to ONE point..and see what happens...
+    Forces[0] = Forces[0] + 1;
+    Forces[1] = Forces[0] + 1;
 
-    if(-70 - s[indx].y > 0 ) {
-        //yforce = 1.0/(-60 - s[indx].y) * (10/m) * Vector(0,1,0);
-        //acc = acc + yforce;
-        acc.y = 3;
-    } else if (70 - s[indx].y < 0 ) {
-        //yforce = 1.0/(-60 - s[indx].y) * (10/m) * Vector(0,-1,0);
-        //acc = acc + yforce;
-        acc.y = -3;
-    }
-
-    if(-70 - s[indx].x > 0 ) {
-        //xforce = 1.0/(-60 - s[indx].x) * (10/m) * Vector(1,0,0);
-        //acc = acc + xforce;
-        //acc.x = acc.x + 1.0/(-60 - s[indx].x) * acc.x;
-        //acc.x = 3;
-    } else if (70 - s[indx].x < 0 ) {
-        //xforce = 1.0/(-60 - s[indx].x) * (10/m) * Vector(-1,0,0);
-        //acc = acc + xforce;
-        //acc.x = acc.x - 1.0/(-60 - s[indx].x) * acc.x;
-        acc.x = -3;
-    }
-
-    if(-70 - s[indx].z > 0 ) {
-        //zforce = 1.0/(-60 - s[indx].z) * (10/m) * Vector(0,0,1);
-        //acc = acc + zforce;
-        //acc.z = acc.z + 1.0/(-60 - s[indx].z) * acc.z;
-        acc.z = 3;
-    } else if (70 - s[indx].x < 0 ) {
-        //zforce = 1.0/(-60 - s[indx].z) * (10/m) * Vector(0,0,-1);
-        //acc = acc + zforce;
-        //acc.z = acc.z - 1.0/(-60 - s[indx].z) * acc.z;
-        acc.z = -3;
-    }
-
-
-    //acc.print();
-    //cout << " after"<< endl;
-
-    return acc;
 }
 
 State F(State s, double m, double t) {
@@ -390,9 +327,11 @@ State F(State s, double m, double t) {
 
     x.SetSize(nmaxp);
 
+    CalcForces(s, t, m);
+
     for (i = 0; i < nmaxp; i++) {
         x[i] = s[nmaxp + i]  + Displace(-5, 6);
-        x[nmaxp + i] = (1 / m) * Accelerate(s, t, m, i);
+        x[nmaxp + i] = (1 / m) * Forces[i];
     }
 
     return x;
@@ -437,9 +376,11 @@ void Simulate(){
     //Manager.S.PrintState();
     //cout << "Before & After " << endl;
     DrawScene();
-    //Manager.S = RK4(Manager.S, 1, Time, TimeStep);
+    B_State = RK4(B_State, env.Mass, Time, TimeStep);
    // Manager.S.PrintState();
     //cout.rdbuf(oldbuf);
+
+    //B_State.PrintState();
 
     // advance the real timestep
     Time += TimeStep;
@@ -471,7 +412,7 @@ void TimerCallback(int){
 void LoadParameters(char *filename, char *objfile){
 
     FILE *paramfile;
-    double psize, k, d;
+    double psize, k, d, m;
     int i, vertcnt, facecnt, suffix;
     float l01, l12, l20;
     int v0, v1, v2;
@@ -495,18 +436,13 @@ void LoadParameters(char *filename, char *objfile){
     ObjFilename = objfile;
 
     // init the param file....
-    if(fscanf(paramfile, "%lf %lf %lf", &TimeStep, &k, &d)!= 3){
+    if(fscanf(paramfile, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",
+              &TimeStep, &k, &d, &m, &(env.G.x), &(env.G.y), &(env.G.z),
+              &(env.Wind.x), &(env.Wind.y), &(env.Wind.z), &(env.Viscosity)) != 11){
         fprintf(stderr, "error reading parameter file %s\n", filename);
         fclose(paramfile);
         exit(1);
     }
-
-    // init the environmental variables
-    env.G.set(0,0,0);
-    env.Wind.set(0,0,0);
-    env.Viscosity = 0;
-
-    TimerDelay = int(0.5 * TimeStep * 1000);
 
     // init the obj file
     int err = Objfile.read();
@@ -546,7 +482,14 @@ void LoadParameters(char *filename, char *objfile){
         B_Strut[3*i + 2].SetStrut(k, d, l20, v2, v0);
     }
 
-    //for(i = 0; i < facecnt * 3; i++) B_Strut[i].PrintStrut();
+    // init forces...
+    Forces = new Vector3d[vertcnt];
+
+    // final initializations:
+    env.Mass = (float) m / vertcnt;
+
+    TimerDelay = int(0.5 * TimeStep * 1000);
+    for(i = 0; i < facecnt * 3; i++) B_Strut[i].PrintStrut();
 }
 
 //
@@ -762,6 +705,8 @@ void handleKey(unsigned char key, int x, int y){
 
     case 's':
     case 'S':
+        cout << Stepped << endl;
+        cout << Stopped << endl;
       Stepped = !Stepped;
       break;
 
