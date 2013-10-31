@@ -261,7 +261,12 @@ Vector3d Displace(int a, int b) {
     return temp;
 }
 
-void StrutForces(State s, double  t, double m) {            // needs state, strut and forces
+void TorsionalForces(State s, double t, double m) {        // this doesn't bode well for me...
+
+}
+
+
+void StrutForces(State s, double t, double m) {            // needs state, strut and forces
     Vector3d xij, uij;
     float lij;
     int i, xi, xj;

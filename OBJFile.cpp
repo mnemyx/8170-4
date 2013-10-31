@@ -98,7 +98,7 @@ int OBJFile::read(char *fname){
     }
   }
 
-    Face tempface;
+    Face tempface, forwardface;
     // process edges after all faces have been dealt with...
     for (i = 0; i < psurf->getFaceCnt(); i++) {
         tempface = psurf->getFaces(i);
@@ -109,6 +109,9 @@ int OBJFile::read(char *fname){
             else
                 psurf->addEdge(Vector(tempface.getVertNdx(0), tempface.getVertNdx(j)),  tempface.getGroupId());
         }
+
+
+
     }
 
   return 0;
