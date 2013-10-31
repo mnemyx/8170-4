@@ -14,13 +14,14 @@
 using namespace std;
 
 PolySurf::PolySurf(){
-  nverts = nnorms = nuvs = nfaces = nedges = neg = nfm =  0;
-  maxverts = maxnorms = maxuvs = maxfaces = maxedges = mneg = maxfm = 0;
+  nverts = nnorms = nuvs = nfaces = nedges = neg = nef = nfm =  0;
+  maxverts = maxnorms = maxuvs = maxfaces = maxedges = mneg = maxef = maxfm = 0;
   verts = norms = NULL;
   uvs = NULL;
   faces = NULL;
   edges = NULL;
   edgegrps = NULL;
+  edgefaces = NULL;
   facematches = NULL;
 
   npoints = nlines = 0;
@@ -45,6 +46,7 @@ PolySurf::~PolySurf(){
   delete []materials;
   delete []edges;
   delete []edgegrps;
+  delete []edgefaces;
   delete []facematches;
 }
 
@@ -82,7 +84,7 @@ void PolySurf::addPoint(int p){
   points[npoints++] = p;
 }
 
-void PolySurf::addEdge(const Vector2d &e, int groupid){
+void PolySurf::addEdge(const Vector2d &e, int groupid, int fid){
   int exists = false;
   int i;
 
@@ -93,6 +95,7 @@ void PolySurf::addEdge(const Vector2d &e, int groupid){
         (int)edges[i][1] == (int)e[1]) ||
         ((int)edges[i][0] == (int)e[1] &&
         (int)edges[i][1] == (int)e[0])) {
+        addEdgeFace(i, fid);
         exists = true;
         break;
     }
@@ -106,20 +109,27 @@ void PolySurf::addEdge(const Vector2d &e, int groupid){
 
       edges[nedges++] = e;
       edgegrps[neg++] = groupid;
+      addEdgeFace(nedges-1, fid);
   }
 }
 
-void PolySurf::addFaceMatch(const Vector2d &fm){
+void PolySurf::addEdgeFace(int eid, int fid){
+  if(maxef == nef) {
+    edgefaces = makespace <Vector2d> (maxef, edgefaces);
+  }
+
+  edgefaces[nef++].set(eid, fid);
+}
+
+void PolySurf::addFaceMatch(const Vector3d &fm){
   int exists = false;
   int i;
+  Vector3d fm_r;
 
-  for (i = 0; i < nedges; i++) {
-    if((int)fm[0] == (int)fm[1]) { exists = true; break; }
+  fm_r.set(fm.y, fm.x, fm.z);
 
-    if(((int)facematches[i][0] == (int)fm[0] &&
-        (int)facematches[i][1] == (int)fm[1]) ||
-        ((int)facematches[i][0] == (int)fm[1] &&
-        (int)facematches[i][1] == (int)fm[0])) {
+  for (i = 0; i < nfm; i++) {
+    if(fm_r == fm || facematches[i] == fm) {
         exists = true;
         break;
     }
@@ -127,7 +137,7 @@ void PolySurf::addFaceMatch(const Vector2d &fm){
 
   if(!exists) {
       if(maxfm == nfm) {
-        facematches = makespace <Vector2d> (maxfm, facematches);
+        facematches = makespace <Vector3d> (maxfm, facematches);
       }
 
       facematches[nfm++] = fm;
@@ -271,6 +281,12 @@ ostream& operator<< (ostream& os, const PolySurf& ps){
   os << "edges (" << ps.nedges << ") = " << endl;
   for(int i = 0; i < ps.nedges; i++)
     os << i << " : G(" << ps.edgegrps[i] << "),  [" << ps.edges[i].x << ", " << ps.edges[i].y << "]" << endl;
+  os << "edge-faces (" << ps.nef << ") = " << endl;
+  for(int i = 0; i < ps.nef; i++)
+    os << i << " : [E, F] [" << ps.edgefaces[i].x << ", " << ps.edgefaces[i].y << "]" << endl;
+  os << "face-matches (" << ps.nfm << ") = " << endl;
+  for(int i = 0; i < ps.nfm; i++)
+    os << i << " : [F1, F2, E] [" << ps.facematches[i].x << ", " << ps.facematches[i].y << ", " << ps.facematches[i].z << "]" << endl;
   os << "lines (" << ps.nlines << ") = " << endl;
   for(int i = 0; i < ps.nlines; i++)
     os << i << " : " << ps.lines[i] << endl;

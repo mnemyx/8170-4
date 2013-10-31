@@ -105,13 +105,18 @@ int OBJFile::read(char *fname){
 
         for(j = 0; j < tempface.getFaceVertCnt(); j++) {
             if(j != tempface.getFaceVertCnt() - 1)
-                psurf->addEdge(Vector(tempface.getVertNdx(j+1), tempface.getVertNdx(j)), tempface.getGroupId());
+                psurf->addEdge(Vector(tempface.getVertNdx(j+1), tempface.getVertNdx(j)), tempface.getGroupId(), i);
             else
-                psurf->addEdge(Vector(tempface.getVertNdx(0), tempface.getVertNdx(j)),  tempface.getGroupId());
+                psurf->addEdge(Vector(tempface.getVertNdx(0), tempface.getVertNdx(j)),  tempface.getGroupId(), i);
         }
+    }
 
-
-
+    for(i = 0; i < psurf->getEdgeFaceCnt() - 1; i++) {
+        for(j = i + 1; j < psurf->getEdgeFaceCnt(); j++) {
+            if(psurf->getEdgeFace(i).x == psurf->getEdgeFace(j).x) {
+                psurf->addFaceMatch(Vector(psurf->getEdgeFace(i).y, psurf->getEdgeFace(j).y, psurf->getEdgeFace(i).x));
+            }
+        }
     }
 
   return 0;

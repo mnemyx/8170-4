@@ -261,8 +261,37 @@ Vector3d Displace(int a, int b) {
     return temp;
 }
 
-void TorsionalForces(State s, double t, double m) {        // this doesn't bode well for me...
+void HingeForces(State s, double t, double m) {        // this doesn't bode well for me...
+    // remember: fo + f1 + f2 + f3 = 0 AND t3 + t2 + t1 = 0
+    int i, j;
+    Vector3d x0, x1, x2, x3, h;
+    double l01;
 
+    for(i = 0; i < Butterfly->getFMCnt(); i++) {
+        x0 = Butterfly->getVert(Butterfly->getEdge(Butterfly->getFaceMatch(i).z).x);
+        x1 = Butterfly->getVert(Butterfly->getEdge(Butterfly->getFaceMatch(i).z).y);
+
+        //cout << "Butterfly->getEdge(Butterfly->getFaceMatch(i).z).x" << Butterfly->getEdge(Butterfly->getFaceMatch(i).z).x << endl;
+        //cout << "Butterfly->getEdge(Butterfly->getFaceMatch(i).z).y" << Butterfly->getEdge(Butterfly->getFaceMatch(i).z).y << endl;
+
+        for(j = 0; j < 3; j++) {
+            if(Butterfly->getFaces(Butterfly->getFaceMatch(i).x).getVertNdx(j) != Butterfly->getEdge(Butterfly->getFaceMatch(i).z).x &&
+                Butterfly->getFaces(Butterfly->getFaceMatch(i).x).getVertNdx(j) != Butterfly->getEdge(Butterfly->getFaceMatch(i).z).x &&
+                Butterfly->getFaces(Butterfly->getFaceMatch(i).x).getVertNdx(j) != Butterfly->getEdge(Butterfly->getFaceMatch(i).z).y &&
+                Butterfly->getFaces(Butterfly->getFaceMatch(i).x).getVertNdx(j) != Butterfly->getEdge(Butterfly->getFaceMatch(i).z).y)
+                x2 = Butterfly->getVert(Butterfly->getFaces(Butterfly->getFaceMatch(i).x).getVertNdx(j));
+
+             if(Butterfly->getFaces(Butterfly->getFaceMatch(i).y).getVertNdx(j) != Butterfly->getEdge(Butterfly->getFaceMatch(i).z).x &&
+                Butterfly->getFaces(Butterfly->getFaceMatch(i).y).getVertNdx(j) != Butterfly->getEdge(Butterfly->getFaceMatch(i).z).x &&
+                Butterfly->getFaces(Butterfly->getFaceMatch(i).y).getVertNdx(j) != Butterfly->getEdge(Butterfly->getFaceMatch(i).z).y &&
+                Butterfly->getFaces(Butterfly->getFaceMatch(i).y).getVertNdx(j) != Butterfly->getEdge(Butterfly->getFaceMatch(i).z).y)
+                x3 = Butterfly->getVert(Butterfly->getFaces(Butterfly->getFaceMatch(i).y).getVertNdx(j));
+        }
+
+
+        //cout << x0 << endl << x1 << endl << x2 << endl << x3 << endl << endl;
+    }
+    // hinge:
 }
 
 
@@ -314,6 +343,8 @@ void StrutForces(State s, double t, double m) {            // needs state, strut
             //cout << "after damping: " << Forces[xj] << endl;
             //}
     }
+
+    HingeForces(s, t, m);
 }
 
 void CalcForces(State s, double  t, double m) {
