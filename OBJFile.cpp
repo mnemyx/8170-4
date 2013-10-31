@@ -178,6 +178,7 @@ int OBJFile::processv(char *line){
   }
 
   psurf->addVertex(vtx);
+
   return 0;
 }
 

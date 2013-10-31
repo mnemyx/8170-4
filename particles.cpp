@@ -132,6 +132,7 @@ static OBJFile Objfile;
 static PolySurf *Butterfly;	      // polygonal surface data structure
 static Vector3d B_Centroid, B_Bboxmin, B_Bboxmax;
 static Vector3d TopRV, TopLV;                // vertices that should control the motion of the wings...
+static int TopRVIndx, TopLVIndx;
 
 /** Texture map to be used by program **/
 static GLuint* TextureID;	    		// texture ID from OpenGL
@@ -260,7 +261,7 @@ Vector3d Displace(int a, int b) {
     return temp;
 }
 
-void StrutForces(State s) {            // needs state, strut and forces
+void StrutForces(State s, double  t, double m) {            // needs state, strut and forces
     Vector3d xij, uij;
     float lij;
     int i, xi, xj;
@@ -274,33 +275,47 @@ void StrutForces(State s) {            // needs state, strut and forces
 
     // adding and calculating force - starting with spring and dampener
     for (i = 0; i < Butterfly->getEdgeCnt(); i++) {
-        xi = B_Strut->GetP1();
-        xj = B_Strut->GetP0();
 
-        xij = s[xj] - s[xi];
-        lij = xij.norm() / 100;
-        uij = xij.normalize();
+        if(m != 0) {
+            if(B_Strut->IsStrut()) {
+            xi = B_Strut[i].GetP1();
+            xj = B_Strut[i].GetP0();
 
-        tempf = B_Strut->GetK() * (lij - B_Strut->GetL0()) * uij;
+            xij = s[xj] - s[xi];
+            lij = xij.norm() / 100;
+            uij = xij / lij;
 
-        Forces[xi] = Forces[xi] + tempf;
-        Forces[xj] = Forces[xj] - tempf;
+            //cout << "xij: " << xij << "; lij: " << lij << "; uij: " << uij << endl;
 
-        //cout << Forces[xj] << endl;
-        //cout << Forces[xi] << endl;
+            tempf =  -1 * ((B_Strut[i].GetK() * (lij - B_Strut[i].GetL0())) * uij);
 
-        tempf = B_Strut->GetD() * ((s[xj + statesize] - s[xi + statesize]) * uij) * uij;
+            //if(xi != TopLVIndx && xi != TopRVIndx && xj != TopLVIndx && xj != TopRVIndx) {
+            //cout << "B_Strut->GetK() / m: " << B_Strut[i].GetK() / m << endl;
+            //cout << "(lij - B_Strut->GetL0()) * uij: " << (lij - B_Strut[i].GetL0()) * uij << endl;
+            //cout << "fs: " << tempf << endl;
 
-        Forces[xi] = Forces[xi] + tempf;
-        Forces[xj] = Forces[xj] - tempf;
+            Forces[xi] = Forces[xi] + tempf;
+            Forces[xj] = Forces[xj] - tempf;
 
-        //cout << Forces[xj] << endl;
-        //cout << Forces[xi] << endl;
+            //cout << "before damping: " <<  Forces[xi] << endl;
+            //cout << Forces[xj] << endl;
+
+            tempf = -1 * ((B_Strut[i].GetD()) * ((s[xj + statesize] - s[xi + statesize]) * uij) * uij);
+
+            //cout << "fd: " << tempf << endl;
+
+            Forces[xi] = Forces[xi] + tempf;
+            Forces[xj] = Forces[xj] - tempf;
+            }
+            //cout << "after damping: " << Forces[xi] << endl;
+            //cout << "after damping: " << Forces[xj] << endl;
+            //}
+        }
     }
 }
 
 void CalcForces(State s, double  t, double m) {
-    StrutForces(s);
+    StrutForces(s, t, m);
 
     int i;
     int statesize = s.GetSize();
@@ -308,14 +323,22 @@ void CalcForces(State s, double  t, double m) {
 
     for(i = 0; i < statesize ; i++) {
         if (env.Wind.x == 0 && env.Wind.y == 0 && env.Wind.z == 0)
-            tempf = env.Mass * (env.G - env.Viscosity * s[i + statesize]);
+            tempf = m * (env.G - env.Viscosity * s[i + statesize]);
         else
-            tempf = env.Mass * (env.G + env.Viscosity * (env.Wind - s[i + statesize]));
+            tempf = m * (env.G + env.Viscosity * (env.Wind - s[i + statesize]));
 
         Forces[i] = Forces[i] + tempf;
-        //cout << Forces[i] << endl;
+
+        if(i == TopLVIndx) {
+            tempf = (TopLV - s[TopLVIndx]) / ((TopLV - s[TopLVIndx + statesize]).norm() / 100);
+            Forces[i] = (.0000011844 * ((TopLV - s[TopLVIndx]).norm() / 100)) * tempf;
+        } else if (i == TopRVIndx) {
+            tempf = (TopRV - s[TopRVIndx]) / ((TopRV - s[TopRVIndx + statesize]).norm() / 100);
+            Forces[i] = (.0000011844 * ((TopRV - s[TopRVIndx]).norm() / 100)) * tempf;
+        }
     }
 
+    //if(Forces[i].x < 0 || Forces[i].y  || Forces[i].z < 0) Forces[i].set(0,0,0);
 }
 
 State F(State s, double m, double t) {
@@ -328,13 +351,8 @@ State F(State s, double m, double t) {
     CalcForces(s, t, m);
 
     for (i = 0; i < nmaxp; i++) {
-        if(i == 0) x[i] = Butterfly->getVert(0);
-        else
-            x[i] = s[nmaxp + i]  + Displace(-5, 6);
-
-        if(i == 0) x[i].set(0,0,0);
-        else
-            x[nmaxp + i] = (1 / m) * Forces[i];
+        x[i] = s[nmaxp + i];
+        x[nmaxp + i] = (1 / m) * Forces[i];
     }
 
     return x;
@@ -376,14 +394,12 @@ void Simulate(){
     //buf.open(("testlog"), ios::out);
     //streambuf* oldbuf = cout.rdbuf( &buf ) ;
 
-    //Manager.S.PrintState();
     //cout << "Before & After " << endl;
     DrawScene();
     B_State = RK4(B_State, env.Mass, Time, TimeStep);
-   // Manager.S.PrintState();
+    //B_State.PrintState();
     //cout.rdbuf(oldbuf);
 
-    //B_State.PrintState();
 
     // advance the real timestep
     Time += TimeStep;
@@ -420,6 +436,7 @@ void LoadParameters(char *filename, char *objfile){
     float l;
     Vector2d tempedge;
     char *tempgrpname;
+    Vector3d ucr, ucl;
 
     if((paramfile = fopen(filename, "r")) == NULL){
         fprintf(stderr, "error opening parameter file %s\n", filename);
@@ -444,7 +461,7 @@ void LoadParameters(char *filename, char *objfile){
               &TimeStep, &kw, &dw, &kb, &db, &m, &(env.G.x), &(env.G.y), &(env.G.z),
               &(env.Wind.x), &(env.Wind.y), &(env.Wind.z), &(env.Viscosity),
               &(TopLV.x), &(TopLV.y), &(TopLV.z),
-              &(TopRV.x), &(TopRV.x), &(TopRV.x))  != 19){
+              &(TopRV.x), &(TopRV.y), &(TopRV.z))  != 19){
         fprintf(stderr, "error reading parameter file %s\n", filename);
         fclose(paramfile);
         exit(1);
@@ -471,8 +488,17 @@ void LoadParameters(char *filename, char *objfile){
     B_State.SetSize(vertcnt);
     B_Strut = new Strut[edgecnt];
 
-    for(i = 0; i < vertcnt; i++)
-        B_State.AddState(i, Butterfly->getVert(i), Vector(0,0,0));
+    for(i = 0; i < vertcnt; i++) {
+        if(Butterfly->getVert(i) == TopLV) {
+            TopLVIndx = i;
+            B_State.AddState(i, Butterfly->getVert(i), Vector(0.0,0.0,-0.1));
+        } else if  (Butterfly->getVert(i) == TopRV) {
+            TopRVIndx = i;
+            B_State.AddState(i, Butterfly->getVert(i), Vector(0.0,0.0,-0.1));
+        } else {
+            B_State.AddState(i, Butterfly->getVert(i), Vector(0.0,0.0,0.0));
+        }
+    }
 
     for(i = 0; i < edgecnt; i++) {
         tempedge = Butterfly->getEdge(i);
@@ -482,14 +508,16 @@ void LoadParameters(char *filename, char *objfile){
         l = ((Butterfly->getVert(tempedge.y) - Butterfly->getVert(tempedge.x)).norm()) / 100;
 
         if(strcmp(tempgrpname, "bottomWings") == 0 || strcmp(tempgrpname, "topWings") == 0)
-            B_Strut[i].SetStrut(kw, dw, l, tempedge.x, tempedge.y, 1);
+            if (tempedge.x == TopRV || tempedge.x == TopLV || tempedge.y == TopLV || tempedge.y == TopRV)
+                B_Strut[i].SetStrut(kw, dw, l, tempedge.x, tempedge.y, 1);
+            else B_Strut[i].SetStrut(kw, dw, l, tempedge.x, tempedge.y, 1);
         else
             B_Strut[i].SetStrut(kb, db, l, tempedge.x, tempedge.y, 0);
     }
 
     // init forces...
     Forces = new Vector3d[vertcnt];
-
+    //cout << TopRV << endl << TopLV << endl << "RV -> LV" << endl;
     // final initializations:
     env.Mass = (float) m / vertcnt;
     TimerDelay = int(0.5 * TimeStep * 1000);
@@ -499,7 +527,7 @@ void LoadParameters(char *filename, char *objfile){
     streambuf* oldbuf = cout.rdbuf( &buf ) ;
     cout << "Butterfly Data: " << *Butterfly << endl;
     cout << endl << "Strut Data: " << endl;
-    for(i = 0; i < edgecnt; i++) { cout << "i : ";  B_Strut[i].PrintStrut(); }
+    for(i = 0; i < edgecnt; i++) { cout << i << " : ";  B_Strut[i].PrintStrut(); }
     cout << endl << "Initialized State Vector: " << endl;
     B_State.PrintState();
     cout.rdbuf(oldbuf);
