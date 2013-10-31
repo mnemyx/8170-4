@@ -264,13 +264,15 @@ Vector3d Displace(int a, int b) {
 }
 
 void HingeForces(State s, double t, double m) {        // this doesn't bode well for me...
-    // remember: fo + f1 + f2 + f3 = 0 AND t3 + t2 + t1 = 0
+    // remember: f0 + f1 + f2 + f3 = 0 AND t3 + t2 + t1 = 0
     int i, j;
+    double l01, l3, l2, sina, cosa, theta;
     Vector3d x0, x1, x2, x3, h;
     Vector3d u03, u02;
-    double l01, sina, cosa, theta;
     Vector3d nl, nr;
     Vector3d rl, rr;
+    Vector3d f0, f1, f2, f3;
+    Vector3d T;
 
 
     for(i = 0; i < Butterfly->getFMCnt(); i++) {
@@ -298,8 +300,21 @@ void HingeForces(State s, double t, double m) {        // this doesn't bode well
 
         theta = atan(sina / cosa);
 
+        T = B_Hinge[i].GetK() * (theta - B_Hinge[i].GetA0()) * h;
 
+        f3 = T / (rl.norm()) * h;
+        f2 = T / (rr.norm()) * h;
 
+        l3 = (x3 - x0) * h;
+        l2 = (x2 - x0) * h;
+
+        f1 = - (l2 * f2 + l3 * f3) / l01;
+        f0 = - f1 - f2 - f3;
+
+        Forces[B_Hinge[i].GetX0()] = Forces[B_Hinge[i].GetX0()] + f0;
+        Forces[B_Hinge[i].GetX1()] = Forces[B_Hinge[i].GetX1()] + f1;
+        Forces[B_Hinge[i].GetX2()] = Forces[B_Hinge[i].GetX2()] + f2;
+        Forces[B_Hinge[i].GetX3()] = Forces[B_Hinge[i].GetX3()] + f3;
     }
 
 }
@@ -320,35 +335,35 @@ void StrutForces(State s, double t, double m) {            // needs state, strut
     // adding and calculating force - starting with spring and dampener
     for (i = 0; i < Butterfly->getEdgeCnt(); i++) {
 
-            if(B_Strut->IsStrut()) {
-            xi = B_Strut[i].GetP1();
-            xj = B_Strut[i].GetP0();
+            //if(B_Strut[i].IsStrut()) {
+                xi = B_Strut[i].GetP1();
+                xj = B_Strut[i].GetP0();
 
-            xij = s[xj] - s[xi];
-            lij = xij.norm() / 100;
-            uij = xij / lij;
+                xij = s[xj] - s[xi];
+                lij = xij.norm() / 100;
+                uij = xij / lij;
 
-            //cout << "xij: " << xij << "; lij: " << lij << "B_Strut[i].GetL0(): " << B_Strut[i].GetL0()<< "; uij: " << uij << endl;
-            //if((lij - B_Strut[i].GetL0()) != 0 ) cout << "I wasnt equal..." << endl;
-            tempf = ((B_Strut[i].GetK() * (lij - B_Strut[i].GetL0())) * uij);
-            //if((lij - B_Strut[i].GetL0()) != 0 ){
-            ////cout << "B_Strut->GetK(): " << B_Strut[i].GetK() << endl;
-            //cout << "(lij - B_Strut->GetL0()) * uij: " << (lij - B_Strut[i].GetL0()) * uij << endl;
-            //cout << "fs: " << tempf << endl;
+                //cout << "xij: " << xij << "; lij: " << lij << "B_Strut[i].GetL0(): " << B_Strut[i].GetL0()<< "; uij: " << uij << endl;
+                //if((lij - B_Strut[i].GetL0()) != 0 ) cout << "I wasnt equal..." << endl;
+                tempf = ((B_Strut[i].GetK() * (lij - B_Strut[i].GetL0())) * uij);
+                //if((lij - B_Strut[i].GetL0()) != 0 ){
+                ////cout << "B_Strut->GetK(): " << B_Strut[i].GetK() << endl;
+                //cout << "(lij - B_Strut->GetL0()) * uij: " << (lij - B_Strut[i].GetL0()) * uij << endl;
+                //cout << "fs: " << tempf << endl;
+                //}
+                Forces[xi] = Forces[xi] + tempf;
+                Forces[xj] = Forces[xj] - tempf;
+
+                //cout << "before damping: " <<  Forces[xi] << endl;
+                //cout << Forces[xj] << endl;
+
+                tempf = ((B_Strut[i].GetD()) * ((s[xj + statesize] - s[xi + statesize]) * uij) * uij);
+
+                //cout << "fd: " << tempf << endl;
+
+                Forces[xi] = Forces[xi] + tempf;
+                Forces[xj] = Forces[xj] - tempf;
             //}
-            Forces[xi] = Forces[xi] + tempf;
-            Forces[xj] = Forces[xj] - tempf;
-
-            //cout << "before damping: " <<  Forces[xi] << endl;
-            //cout << Forces[xj] << endl;
-
-            tempf = ((B_Strut[i].GetD()) * ((s[xj + statesize] - s[xi + statesize]) * uij) * uij);
-
-            //cout << "fd: " << tempf << endl;
-
-            Forces[xi] = Forces[xi] + tempf;
-            Forces[xj] = Forces[xj] - tempf;
-            }
             //cout << "after damping: " << Forces[xi] << endl;
             //cout << "after damping: " << Forces[xj] << endl;
             //}
@@ -669,7 +684,6 @@ void RestartSim(){
   DrawScene();
 }
 
-
 /************************* INITIALIZATIONS ****************************/
 //
 //  Initialize the Simulation
@@ -724,14 +738,14 @@ void drawDisplay(){
   // light is positioned in camera space so it does not move with object
   glLoadIdentity();
   glLightfv(GL_LIGHT0, GL_POSITION, light_position1);
-  glLightfv(GL_LIGHT0, GL_AMBIENT, CRIMSON);
-  glLightfv(GL_LIGHT0, GL_DIFFUSE, CRIMSON);
-  glLightfv(GL_LIGHT0, GL_SPECULAR, CRIMSON);
+  glLightfv(GL_LIGHT0, GL_AMBIENT, WHITE);
+  glLightfv(GL_LIGHT0, GL_DIFFUSE, WHITE);
+  glLightfv(GL_LIGHT0, GL_SPECULAR, WHITE);
 
   glLightfv(GL_LIGHT1, GL_POSITION, light_position2);
-  glLightfv(GL_LIGHT1, GL_AMBIENT, VIOLET);
-  glLightfv(GL_LIGHT1, GL_DIFFUSE, VIOLET);
-  glLightfv(GL_LIGHT1, GL_SPECULAR, VIOLET);
+  glLightfv(GL_LIGHT1, GL_AMBIENT, WHITE);
+  glLightfv(GL_LIGHT1, GL_DIFFUSE, WHITE);
+  glLightfv(GL_LIGHT1, GL_SPECULAR, WHITE);
 
   glEnable(GL_LIGHTING);
   glEnable(GL_LIGHT0);
