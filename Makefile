@@ -20,8 +20,8 @@ else
   endif
 endif
 
-HFILES 	= File.${H} OBJFile.${H} MTLFile.${H} ImageFile.${H} PolySurf.${H} Face.${H} Line.${H} Group.${H} Material.${H} Color.${H} Pixmap.${H} MakeSpace.${H} Matrix.${H} Vector.${H} Utility.${H} gauss.${H} Strut.${H} State.${H}
-OFILES 	= File.o OBJFile.o MTLFile.o ImageFile.o PolySurf.o Face.o Line.o Group.o Material.o Pixmap.o Color.o Matrix.o Vector.o Utility.o gauss.o Strut.o State.o
+HFILES 	= File.${H} OBJFile.${H} MTLFile.${H} ImageFile.${H} PolySurf.${H} Face.${H} Line.${H} Group.${H} Material.${H} Color.${H} Pixmap.${H} MakeSpace.${H} Matrix.${H} Vector.${H} Utility.${H} gauss.${H} Strut.${H} Hinge.${H} State.${H}
+OFILES 	= File.o OBJFile.o MTLFile.o ImageFile.o PolySurf.o Face.o Line.o Group.o Material.o Pixmap.o Color.o Matrix.o Vector.o Utility.o gauss.o Strut.o Hinge.o State.o
 PROJECT = particles
 
 ${PROJECT}:	${PROJECT}.o $(OFILES)
@@ -32,6 +32,9 @@ ${PROJECT}.o: ${PROJECT}.${C} $(HFILES)
 
 State.o: State.${C} State.${H}
 	${CC} ${CFLAGS} -c ${INCFLAGS} State.${C}
+
+Hinge.o: Hinge.${C} Hinge.${H}
+	${CC} ${CFLAGS} -c ${INCFLAGS} Hinge.${C}
 
 Strut.o: Strut.${C} Strut.${H}
 	${CC} ${CFLAGS} -c ${INCFLAGS} Strut.${C}

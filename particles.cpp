@@ -15,6 +15,7 @@
 #include "PolySurf.h"
 #include "State.h"
 #include "Strut.h"
+#include "Hinge.h"
 
 #ifdef __APPLE__
 #  include <GLUT/glut.h>
@@ -121,6 +122,7 @@ static int Wireframe = true;
 static State B_State;
 static Strut *B_Strut;
 static Vector3d *Forces;
+static Hinge *B_Hinge;
 
 /***********************  avoidance constants *********************/
 double Ka = 1;
@@ -265,8 +267,11 @@ void HingeForces(State s, double t, double m) {        // this doesn't bode well
     // remember: fo + f1 + f2 + f3 = 0 AND t3 + t2 + t1 = 0
     int i, j;
     Vector3d x0, x1, x2, x3, h;
+    Vector3d u03, u02;
     double l01;
-
+    Vector3d nl, nr;
+    Vector3d rl, rr;
+    /**
     for(i = 0; i < Butterfly->getFMCnt(); i++) {
         x0 = Butterfly->getVert(Butterfly->getEdge(Butterfly->getFaceMatch(i).z).x);
         x1 = Butterfly->getVert(Butterfly->getEdge(Butterfly->getFaceMatch(i).z).y);
@@ -288,10 +293,24 @@ void HingeForces(State s, double t, double m) {        // this doesn't bode well
                 x3 = Butterfly->getVert(Butterfly->getFaces(Butterfly->getFaceMatch(i).y).getVertNdx(j));
         }
 
-
         //cout << x0 << endl << x1 << endl << x2 << endl << x3 << endl << endl;
-    }
-    // hinge:
+
+        // hinge:
+        l01 = (x1 - x0).norm() / 100;
+        h = (x1 - x0) / l01;
+
+        u03 = (x3 - x0) / ((x3 - x0).norm() / 100 );
+        u02 = (x2 - x0) / ((x2 - x0).norm() / 100 );
+
+        // I don't need to change these to centimeters...right? h should be..and unit vectors are...
+        nl = (h % u03) / (h % u03).norm();
+        nr = (u02 % h) / (u02 % h).norm();
+
+        rl = x03 - (x03 * h) * h;
+        rr = x02 - (x02 * h) * h;
+
+    }**/
+
 }
 
 
@@ -461,15 +480,118 @@ void TimerCallback(int){
 //
 //  Load parameter file and reinitialize global parameters
 //
-void LoadParameters(char *filename, char *objfile){
+void PopulateState(int vertcnt) {
+    int i;
+    B_State.SetSize(vertcnt);
 
-    FILE *paramfile;
-    double psize, kw, dw, m, kb, db;
-    int i, j, vertcnt, edgecnt, suffix, tempegid;
+    for(i = 0; i < vertcnt; i++) {
+        if(Butterfly->getVert(i) == TopLV) {
+            TopLVIndx = i;
+            B_State.AddState(i, Butterfly->getVert(i), Vector(0.0,0.0,-0.1));
+        } else if  (Butterfly->getVert(i) == TopRV) {
+            TopRVIndx = i;
+            B_State.AddState(i, Butterfly->getVert(i), Vector(0.0,0.0,-0.1));
+        } else {
+            B_State.AddState(i, Butterfly->getVert(i), Vector(0.0,0.0,0.0));
+        }
+    }
+}
+
+
+void PopulateStrut(int edgecnt, double kw, double dw, double kb, double db) {
+    int i, tempegid;
     float l;
     Vector2d tempedge;
     char *tempgrpname;
-    Vector3d ucr, ucl;
+
+    B_Strut = new Strut[edgecnt];
+
+    for(i = 0; i < edgecnt; i++) {
+        tempedge = Butterfly->getEdge(i);
+        tempegid =  Butterfly->getEdgeGrp(i);
+        tempgrpname = Butterfly->getGroup(tempegid).getName();
+
+        l = ((Butterfly->getVert(tempedge.y) - Butterfly->getVert(tempedge.x)).norm()) / 100;
+
+        if(strcmp(tempgrpname, "bottomWings") == 0 || strcmp(tempgrpname, "topWings") == 0)
+            if (tempedge.x == TopRV || tempedge.x == TopLV || tempedge.y == TopLV || tempedge.y == TopRV)
+                B_Strut[i].SetStrut(kw, dw, l, tempedge.x, tempedge.y, 1);
+            else B_Strut[i].SetStrut(kw, dw, l, tempedge.x, tempedge.y, 1);
+        else
+            B_Strut[i].SetStrut(kb, db, l, tempedge.x, tempedge.y, 0);
+    }
+}
+
+void PopulateHinge(int hingecnt) {
+    int i, j;
+    Vector3d x0, x1, x2, x3, h;
+    Vector3d u03, u02;
+    double l01, sina, cosa;
+    Vector3d nl, nr;
+    Vector3d rl, rr;
+
+    B_Hinge = new Hinge[hingecnt];
+
+    for(i = 0; i < hingecnt; i++) {
+        B_Hinge[i].SetX0(Butterfly->getEdge(Butterfly->getFaceMatch(i).z).x);
+        B_Hinge[i].SetX1(Butterfly->getEdge(Butterfly->getFaceMatch(i).z).y);
+
+        x0 = Butterfly->getVert(Butterfly->getEdge(Butterfly->getFaceMatch(i).z).x);
+        x1 = Butterfly->getVert(Butterfly->getEdge(Butterfly->getFaceMatch(i).z).y);
+
+        //cout << "Butterfly->getEdge(Butterfly->getFaceMatch(i).z).x" << Butterfly->getEdge(Butterfly->getFaceMatch(i).z).x << endl;
+        //cout << "Butterfly->getEdge(Butterfly->getFaceMatch(i).z).y" << Butterfly->getEdge(Butterfly->getFaceMatch(i).z).y << endl;
+
+        for(j = 0; j < 3; j++) {
+            if(Butterfly->getFaces(Butterfly->getFaceMatch(i).x).getVertNdx(j) != Butterfly->getEdge(Butterfly->getFaceMatch(i).z).x &&
+                Butterfly->getFaces(Butterfly->getFaceMatch(i).x).getVertNdx(j) != Butterfly->getEdge(Butterfly->getFaceMatch(i).z).x &&
+                Butterfly->getFaces(Butterfly->getFaceMatch(i).x).getVertNdx(j) != Butterfly->getEdge(Butterfly->getFaceMatch(i).z).y &&
+                Butterfly->getFaces(Butterfly->getFaceMatch(i).x).getVertNdx(j) != Butterfly->getEdge(Butterfly->getFaceMatch(i).z).y)
+                {
+                    B_Hinge[i].SetX2(Butterfly->getFaces(Butterfly->getFaceMatch(i).x).getVertNdx(j));
+                    x2 = Butterfly->getVert(Butterfly->getFaces(Butterfly->getFaceMatch(i).x).getVertNdx(j));
+                }
+
+             if(Butterfly->getFaces(Butterfly->getFaceMatch(i).y).getVertNdx(j) != Butterfly->getEdge(Butterfly->getFaceMatch(i).z).x &&
+                Butterfly->getFaces(Butterfly->getFaceMatch(i).y).getVertNdx(j) != Butterfly->getEdge(Butterfly->getFaceMatch(i).z).x &&
+                Butterfly->getFaces(Butterfly->getFaceMatch(i).y).getVertNdx(j) != Butterfly->getEdge(Butterfly->getFaceMatch(i).z).y &&
+                Butterfly->getFaces(Butterfly->getFaceMatch(i).y).getVertNdx(j) != Butterfly->getEdge(Butterfly->getFaceMatch(i).z).y)
+                {
+                    B_Hinge[i].SetX3(Butterfly->getFaces(Butterfly->getFaceMatch(i).y).getVertNdx(j));
+                    x3 = Butterfly->getVert(Butterfly->getFaces(Butterfly->getFaceMatch(i).y).getVertNdx(j));
+                }
+        }
+
+        //cout << x0 << endl << x1 << endl << x2 << endl << x3 << endl << endl;
+
+        // hinge:
+        l01 = (x1 - x0).norm() / 100;
+        h = (x1 - x0) / l01;
+
+        u03 = (x3 - x0) / ((x3 - x0).norm() / 100 );
+        u02 = (x2 - x0) / ((x2 - x0).norm() / 100 );
+
+        // I don't need to change these to centimeters...right? h should be..and unit vectors are...
+        nl = (h % u03) / (h % u03).norm();
+        nr = (u02 % h) / (u02 % h).norm();
+
+        rl = (x3 - x0) - ((x3 - x0) * h) * h;
+        rr = (x2 - x0) - ((x2 - x0) * h) * h;
+
+        sina = (nl % nr) * h;
+        cosa = nl * nr;
+
+        B_Hinge[i].SetA0(atan(sina/cosa));
+    }
+
+}
+
+
+void LoadParameters(char *filename, char *objfile){
+
+    FILE *paramfile;
+    double kw, dw, m, kb, db;
+    int i, vertcnt, edgecnt, hingecnt, suffix;
 
     if((paramfile = fopen(filename, "r")) == NULL){
         fprintf(stderr, "error opening parameter file %s\n", filename);
@@ -513,40 +635,15 @@ void LoadParameters(char *filename, char *objfile){
     B_Bboxmin = Butterfly->MinBBox();
     B_Bboxmax = Butterfly->MaxBBox();
 
-    // Set State from PolySurf - Butterfly
-    // Need to figure out what to do with velocity...
     vertcnt = Butterfly->getVertCnt();
     edgecnt = Butterfly->getEdgeCnt();
+    hingecnt = Butterfly->getFMCnt();
 
-    B_State.SetSize(vertcnt);
-    B_Strut = new Strut[edgecnt];
-
-    for(i = 0; i < vertcnt; i++) {
-        if(Butterfly->getVert(i) == TopLV) {
-            TopLVIndx = i;
-            B_State.AddState(i, Butterfly->getVert(i), Vector(0.0,0.0,-0.1));
-        } else if  (Butterfly->getVert(i) == TopRV) {
-            TopRVIndx = i;
-            B_State.AddState(i, Butterfly->getVert(i), Vector(0.0,0.0,-0.1));
-        } else {
-            B_State.AddState(i, Butterfly->getVert(i), Vector(0.0,0.0,0.0));
-        }
-    }
-
-    for(i = 0; i < edgecnt; i++) {
-        tempedge = Butterfly->getEdge(i);
-        tempegid =  Butterfly->getEdgeGrp(i);
-        tempgrpname = Butterfly->getGroup(tempegid).getName();
-
-        l = ((Butterfly->getVert(tempedge.y) - Butterfly->getVert(tempedge.x)).norm()) / 100;
-
-        if(strcmp(tempgrpname, "bottomWings") == 0 || strcmp(tempgrpname, "topWings") == 0)
-            if (tempedge.x == TopRV || tempedge.x == TopLV || tempedge.y == TopLV || tempedge.y == TopRV)
-                B_Strut[i].SetStrut(kw, dw, l, tempedge.x, tempedge.y, 1);
-            else B_Strut[i].SetStrut(kw, dw, l, tempedge.x, tempedge.y, 1);
-        else
-            B_Strut[i].SetStrut(kb, db, l, tempedge.x, tempedge.y, 0);
-    }
+    // Set State from PolySurf - Butterfly
+    // Need to figure out what to do with velocity...
+    PopulateState(vertcnt);
+    PopulateStrut(edgecnt, kw, dw, kb, db);
+    PopulateHinge(hingecnt);
 
     // init forces...
     Forces = new Vector3d[vertcnt];
@@ -561,6 +658,8 @@ void LoadParameters(char *filename, char *objfile){
     cout << "Butterfly Data: " << *Butterfly << endl;
     cout << endl << "Strut Data: " << endl;
     for(i = 0; i < edgecnt; i++) { cout << i << " : ";  B_Strut[i].PrintStrut(); }
+    cout << endl << "Hinge Data: " << endl;
+    for(i = 0; i < hingecnt; i++) { cout << i << " : ";  B_Hinge[i].PrintHinge(); }
     cout << endl << "Initialized State Vector: " << endl;
     B_State.PrintState();
     cout.rdbuf(oldbuf);
