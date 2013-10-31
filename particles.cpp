@@ -684,6 +684,9 @@ void LoadParameters(char *filename, char *objfile){
     buf.open(("test_butterfy_log"), ios::out);
     streambuf* oldbuf = cout.rdbuf( &buf ) ;
     cout << "Butterfly Data: " << *Butterfly << endl;
+    cout << endl << "Special Vertices: " << endl;
+    for(i = 0; i < 6; i++) { cout << i << " : V(" << RightVIndx[i] << "), " << RightV[i] << endl; }
+    for(i = 0; i < 6; i++) { cout << i << " : V(" << LeftVIndx[i] << "), " << LeftV[i] << endl; }
     cout << endl << "Strut Data: " << endl;
     for(i = 0; i < edgecnt; i++) { cout << i << " : ";  B_Strut[i].PrintStrut(); }
     cout << endl << "Hinge Data: " << endl;
