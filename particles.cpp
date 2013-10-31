@@ -534,11 +534,12 @@ void PopulateStrut(int edgecnt, double kw, double dw, double kb, double db) {
         l = ((Butterfly->getVert(tempedge.y) - Butterfly->getVert(tempedge.x)).norm()) / 100;
 
         if(strcmp(tempgrpname, "bottomWings") == 0 || strcmp(tempgrpname, "topWings") == 0) {
-            for(j = 0; j < 6; j++) {
-                if (tempedge.x == RightVIndx[j] || tempedge.x == LeftVIndx[j] || tempedge.y == RightVIndx[j] || tempedge.y == LeftVIndx[j])
-                    B_Strut[i].SetStrut(kw, dw, l, tempedge.x, tempedge.y, 1);
-                else B_Strut[i].SetStrut(kw, dw, l, tempedge.x, tempedge.y, 1);
-            }
+            //for(j = 0; j < 6; j++) {
+                //if (tempedge.x == RightVIndx[j] || tempedge.x == LeftVIndx[j] || tempedge.y == RightVIndx[j] || tempedge.y == LeftVIndx[j])
+                    //B_Strut[i].SetStrut(kw, dw, l, tempedge.x, tempedge.y, 1);
+                //else
+            B_Strut[i].SetStrut(kw, dw, l, tempedge.x, tempedge.y, 1);
+            //}
         } else
             B_Strut[i].SetStrut(kb, db, l, tempedge.x, tempedge.y, 0);
     }
