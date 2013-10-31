@@ -1,4 +1,5 @@
 .1
+.00011844
 .00011844     .0000000000009
 .00011844     .0000000000009
 
@@ -14,6 +15,7 @@
 parameters format
 ===========================================
 timestep
+spring (K)                  [of hinge]
 spring (K)  dampener (D)    [of wings]
 spring (L)  dampener (D)    [of body]
 

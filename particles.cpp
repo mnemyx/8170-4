@@ -268,32 +268,16 @@ void HingeForces(State s, double t, double m) {        // this doesn't bode well
     int i, j;
     Vector3d x0, x1, x2, x3, h;
     Vector3d u03, u02;
-    double l01;
+    double l01, sina, cosa, theta;
     Vector3d nl, nr;
     Vector3d rl, rr;
-    /**
+
+
     for(i = 0; i < Butterfly->getFMCnt(); i++) {
-        x0 = Butterfly->getVert(Butterfly->getEdge(Butterfly->getFaceMatch(i).z).x);
-        x1 = Butterfly->getVert(Butterfly->getEdge(Butterfly->getFaceMatch(i).z).y);
-
-        //cout << "Butterfly->getEdge(Butterfly->getFaceMatch(i).z).x" << Butterfly->getEdge(Butterfly->getFaceMatch(i).z).x << endl;
-        //cout << "Butterfly->getEdge(Butterfly->getFaceMatch(i).z).y" << Butterfly->getEdge(Butterfly->getFaceMatch(i).z).y << endl;
-
-        for(j = 0; j < 3; j++) {
-            if(Butterfly->getFaces(Butterfly->getFaceMatch(i).x).getVertNdx(j) != Butterfly->getEdge(Butterfly->getFaceMatch(i).z).x &&
-                Butterfly->getFaces(Butterfly->getFaceMatch(i).x).getVertNdx(j) != Butterfly->getEdge(Butterfly->getFaceMatch(i).z).x &&
-                Butterfly->getFaces(Butterfly->getFaceMatch(i).x).getVertNdx(j) != Butterfly->getEdge(Butterfly->getFaceMatch(i).z).y &&
-                Butterfly->getFaces(Butterfly->getFaceMatch(i).x).getVertNdx(j) != Butterfly->getEdge(Butterfly->getFaceMatch(i).z).y)
-                x2 = Butterfly->getVert(Butterfly->getFaces(Butterfly->getFaceMatch(i).x).getVertNdx(j));
-
-             if(Butterfly->getFaces(Butterfly->getFaceMatch(i).y).getVertNdx(j) != Butterfly->getEdge(Butterfly->getFaceMatch(i).z).x &&
-                Butterfly->getFaces(Butterfly->getFaceMatch(i).y).getVertNdx(j) != Butterfly->getEdge(Butterfly->getFaceMatch(i).z).x &&
-                Butterfly->getFaces(Butterfly->getFaceMatch(i).y).getVertNdx(j) != Butterfly->getEdge(Butterfly->getFaceMatch(i).z).y &&
-                Butterfly->getFaces(Butterfly->getFaceMatch(i).y).getVertNdx(j) != Butterfly->getEdge(Butterfly->getFaceMatch(i).z).y)
-                x3 = Butterfly->getVert(Butterfly->getFaces(Butterfly->getFaceMatch(i).y).getVertNdx(j));
-        }
-
-        //cout << x0 << endl << x1 << endl << x2 << endl << x3 << endl << endl;
+        x0 = s[B_Hinge[i].GetX0()];
+        x1 = s[B_Hinge[i].GetX1()];
+        x2 = s[B_Hinge[i].GetX2()];
+        x3 = s[B_Hinge[i].GetX3()];
 
         // hinge:
         l01 = (x1 - x0).norm() / 100;
@@ -306,10 +290,17 @@ void HingeForces(State s, double t, double m) {        // this doesn't bode well
         nl = (h % u03) / (h % u03).norm();
         nr = (u02 % h) / (u02 % h).norm();
 
-        rl = x03 - (x03 * h) * h;
-        rr = x02 - (x02 * h) * h;
+        rl = (x3 - x0) - ((x3 - x0) * h) * h;
+        rr = (x3 - x0) - ((x2 - x0) * h) * h;
 
-    }**/
+        sina = (nl % nr) * h;
+        cosa = nl * nr;
+
+        theta = atan(sina / cosa);
+
+
+
+    }
 
 }
 
@@ -497,7 +488,6 @@ void PopulateState(int vertcnt) {
     }
 }
 
-
 void PopulateStrut(int edgecnt, double kw, double dw, double kb, double db) {
     int i, tempegid;
     float l;
@@ -522,7 +512,7 @@ void PopulateStrut(int edgecnt, double kw, double dw, double kb, double db) {
     }
 }
 
-void PopulateHinge(int hingecnt) {
+void PopulateHinge(int hingecnt, double ktheta) {
     int i, j;
     Vector3d x0, x1, x2, x3, h;
     Vector3d u03, u02;
@@ -533,6 +523,7 @@ void PopulateHinge(int hingecnt) {
     B_Hinge = new Hinge[hingecnt];
 
     for(i = 0; i < hingecnt; i++) {
+        B_Hinge[i].SetK(ktheta);
         B_Hinge[i].SetX0(Butterfly->getEdge(Butterfly->getFaceMatch(i).z).x);
         B_Hinge[i].SetX1(Butterfly->getEdge(Butterfly->getFaceMatch(i).z).y);
 
@@ -590,7 +581,7 @@ void PopulateHinge(int hingecnt) {
 void LoadParameters(char *filename, char *objfile){
 
     FILE *paramfile;
-    double kw, dw, m, kb, db;
+    double kw, dw, m, kb, db, ktheta;
     int i, vertcnt, edgecnt, hingecnt, suffix;
 
     if((paramfile = fopen(filename, "r")) == NULL){
@@ -612,11 +603,11 @@ void LoadParameters(char *filename, char *objfile){
     ObjFilename = objfile;
 
     // init the param file....
-    if(fscanf(paramfile, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",
-              &TimeStep, &kw, &dw, &kb, &db, &m, &(env.G.x), &(env.G.y), &(env.G.z),
+    if(fscanf(paramfile, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",
+              &TimeStep, &ktheta, &kw, &dw, &kb, &db, &m, &(env.G.x), &(env.G.y), &(env.G.z),
               &(env.Wind.x), &(env.Wind.y), &(env.Wind.z), &(env.Viscosity),
               &(TopLV.x), &(TopLV.y), &(TopLV.z),
-              &(TopRV.x), &(TopRV.y), &(TopRV.z))  != 19){
+              &(TopRV.x), &(TopRV.y), &(TopRV.z))  != 20){
         fprintf(stderr, "error reading parameter file %s\n", filename);
         fclose(paramfile);
         exit(1);
@@ -643,7 +634,7 @@ void LoadParameters(char *filename, char *objfile){
     // Need to figure out what to do with velocity...
     PopulateState(vertcnt);
     PopulateStrut(edgecnt, kw, dw, kb, db);
-    PopulateHinge(hingecnt);
+    PopulateHinge(hingecnt, ktheta);
 
     // init forces...
     Forces = new Vector3d[vertcnt];
