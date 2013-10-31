@@ -133,8 +133,9 @@ double Kc = .75;
 static OBJFile Objfile;
 static PolySurf *Butterfly;	      // polygonal surface data structure
 static Vector3d B_Centroid, B_Bboxmin, B_Bboxmax;
-static Vector3d TopRV, TopLV;                // vertices that should control the motion of the wings...
-static int TopRVIndx, TopLVIndx;
+static Vector3d RightV[6], LeftV[6];
+static int RightVIndx[6], LeftVIndx[6];
+
 
 /** Texture map to be used by program **/
 static GLuint* TextureID;	    		// texture ID from OpenGL
@@ -375,7 +376,7 @@ void StrutForces(State s, double t, double m) {            // needs state, strut
 void CalcForces(State s, double  t, double m) {
     StrutForces(s, t, m);
 
-    int i;
+    int i, j;
     int statesize = s.GetSize();
     Vector3d tempf;
 
@@ -387,13 +388,20 @@ void CalcForces(State s, double  t, double m) {
 
         Forces[i] = Forces[i] + tempf;
 
-        if(i == TopLVIndx) {
-            tempf = (TopLV - s[TopLVIndx]) / ((TopLV - s[TopLVIndx + statesize]).norm() / 100);
-            Forces[i] = (.0000011844 * ((TopLV - s[TopLVIndx]).norm() / 100)) * tempf;
-        } else if (i == TopRVIndx) {
-            tempf = (TopRV - s[TopRVIndx]) / ((TopRV - s[TopRVIndx + statesize]).norm() / 100);
-            Forces[i] = (.0000011844 * ((TopRV - s[TopRVIndx]).norm() / 100)) * tempf;
+        for(j = 0; j < 6; j++) {
+            if(i == LeftVIndx[j]) {
+                tempf = (LeftV[j] - s[LeftVIndx[j]]) / ((LeftV[j] - s[LeftVIndx[j] + statesize]).norm() / 100);
+                Forces[i] = (.0000011844 * ((LeftV[j] - s[LeftVIndx[j]]).norm() / 100)) * tempf;
+
+            }
+
+            if (i == RightVIndx[j]) {
+                tempf = (RightV[j]- s[RightVIndx[j]]) / ((RightV[j] - s[RightVIndx[j] + statesize]).norm() / 100);
+                Forces[i] = (.0000011844 * ((RightV[j] - s[RightVIndx[j]]).norm() / 100)) * tempf;
+            }
+
         }
+
     }
 
     //if(Forces[i].x < 0 || Forces[i].y  || Forces[i].z < 0) Forces[i].set(0,0,0);
@@ -487,24 +495,26 @@ void TimerCallback(int){
 //  Load parameter file and reinitialize global parameters
 //
 void PopulateState(int vertcnt) {
-    int i;
+    int i, j;
     B_State.SetSize(vertcnt);
 
     for(i = 0; i < vertcnt; i++) {
-        if(Butterfly->getVert(i) == TopLV) {
-            TopLVIndx = i;
-            B_State.AddState(i, Butterfly->getVert(i), Vector(0.0,0.0,-0.1));
-        } else if  (Butterfly->getVert(i) == TopRV) {
-            TopRVIndx = i;
-            B_State.AddState(i, Butterfly->getVert(i), Vector(0.0,0.0,-0.1));
-        } else {
-            B_State.AddState(i, Butterfly->getVert(i), Vector(0.0,0.0,0.0));
+        for(j = 0; j < 6; j++) {
+            if (Butterfly->getVert(i) == LeftV[j]) {
+                LeftVIndx[j] = i;
+                B_State.AddState(i, Butterfly->getVert(i), Vector(0.0,0.0,-0.1));
+            } else if (Butterfly->getVert(i) == RightV[j]) {
+                RightVIndx[j] = i;
+                B_State.AddState(i, Butterfly->getVert(i), Vector(0.0,0.0,-0.1));
+            } else {
+                B_State.AddState(i, Butterfly->getVert(i), Vector(0.0,0.0,0.0));
+            }
         }
     }
 }
 
 void PopulateStrut(int edgecnt, double kw, double dw, double kb, double db) {
-    int i, tempegid;
+    int i, j, tempegid;
     float l;
     Vector2d tempedge;
     char *tempgrpname;
@@ -518,11 +528,13 @@ void PopulateStrut(int edgecnt, double kw, double dw, double kb, double db) {
 
         l = ((Butterfly->getVert(tempedge.y) - Butterfly->getVert(tempedge.x)).norm()) / 100;
 
-        if(strcmp(tempgrpname, "bottomWings") == 0 || strcmp(tempgrpname, "topWings") == 0)
-            if (tempedge.x == TopRV || tempedge.x == TopLV || tempedge.y == TopLV || tempedge.y == TopRV)
-                B_Strut[i].SetStrut(kw, dw, l, tempedge.x, tempedge.y, 1);
-            else B_Strut[i].SetStrut(kw, dw, l, tempedge.x, tempedge.y, 1);
-        else
+        if(strcmp(tempgrpname, "bottomWings") == 0 || strcmp(tempgrpname, "topWings") == 0) {
+            for(j = 0; j < 6; j++) {
+                if (tempedge.x == RightV[j] || tempedge.x == LeftV[j] || tempedge.y == RightV[j] || tempedge.y == LeftV[j])
+                    B_Strut[i].SetStrut(kw, dw, l, tempedge.x, tempedge.y, 2);
+                else B_Strut[i].SetStrut(kw, dw, l, tempedge.x, tempedge.y, 1);
+            }
+        } else
             B_Strut[i].SetStrut(kb, db, l, tempedge.x, tempedge.y, 0);
     }
 }
@@ -618,11 +630,21 @@ void LoadParameters(char *filename, char *objfile){
     ObjFilename = objfile;
 
     // init the param file....
-    if(fscanf(paramfile, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",
+    if(fscanf(paramfile, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",
               &TimeStep, &ktheta, &kw, &dw, &kb, &db, &m, &(env.G.x), &(env.G.y), &(env.G.z),
               &(env.Wind.x), &(env.Wind.y), &(env.Wind.z), &(env.Viscosity),
-              &(TopLV.x), &(TopLV.y), &(TopLV.z),
-              &(TopRV.x), &(TopRV.y), &(TopRV.z))  != 20){
+              &(RightV[0].x), &(RightV[0].y), &(RightV[0].z),
+              &(RightV[1].x), &(RightV[1].y), &(RightV[1].z),
+              &(RightV[2].x), &(RightV[2].y), &(RightV[2].z),
+              &(RightV[3].x), &(RightV[3].y), &(RightV[3].z),
+              &(RightV[4].x), &(RightV[4].y), &(RightV[4].z),
+              &(RightV[5].x), &(RightV[5].y), &(RightV[5].z),
+              &(LeftV[0].x), &(LeftV[0].y), &(LeftV[0].z),
+              &(LeftV[1].x), &(LeftV[1].y), &(LeftV[1].z),
+              &(LeftV[2].x), &(LeftV[2].y), &(LeftV[2].z),
+              &(LeftV[3].x), &(LeftV[3].y), &(LeftV[3].z),
+              &(LeftV[4].x), &(LeftV[4].y), &(LeftV[4].z),
+              &(LeftV[5].x), &(LeftV[5].y), &(LeftV[5].z))  != 50){
         fprintf(stderr, "error reading parameter file %s\n", filename);
         fclose(paramfile);
         exit(1);

@@ -1,16 +1,27 @@
-.1
-.00011844
+.05
+.0000000000000000011844
 .00011844     .0000000000009
-.00011844     .0000000000009
+0     .0000000000009
 
 .0005
 
 0.0           0.0           0.0
-0.0           0.0          0.0
+0.0           0.0           0.0
 0.0
 
--0.119726               2.867816                0.054115
 0.119726                2.867816                0.054115
+0.172697                2.422875                0.162476
+0.200856                1.984248                0.211596
+0.245386                2.430011                0.081513
+0.285397                1.997265                0.132356
+0.258995                1.562419                0.158016
+
+-0.119726               2.867816                0.054115
+-0.172697               2.422875                0.162476
+-0.200856               1.984248                0.211596
+-0.245386               2.430011                0.081513
+-0.285397               1.997265                0.132356
+-0.258995               1.562419                0.158016
 
 parameters format
 ===========================================
@@ -25,5 +36,18 @@ gravity.x   gravity.y   gravity.z
 wind.x      wind.y      wind.z
 viscosity
 
-primaryleftwing.x       primaryleftwing.y       primaryleftwing.z
-primaryrightwing.x      primaryrightwing.y      primaryrightwing.z
+6 vertices - impt to move wings - top right and bottom right
+tr1.x       tr1.y       tr1.z
+tr2.x       tr2.y       tr2.z
+tr3.x       tr3.y       tr3.z
+br4.x       br5.y       br4.z
+br5.x       br5.y       br5.z
+br6.x       br6.y       br6.z
+
+6 vertices - impt to move wings - top left and bottom left
+tl1.x       tl1.y       tl1.z
+tl2.x       tl2.y       tl2.z
+tl3.x       tl3.y       tl3.z
+bl4.x       bl4.y       bl4.z
+bl5.x       bl5.y       bl5.z
+bl6.x       bl6.y       bl6.z
