@@ -276,7 +276,6 @@ void StrutForces(State s, double  t, double m) {            // needs state, stru
     // adding and calculating force - starting with spring and dampener
     for (i = 0; i < Butterfly->getEdgeCnt(); i++) {
 
-        if(m != 0) {
             if(B_Strut->IsStrut()) {
             xi = B_Strut[i].GetP1();
             xj = B_Strut[i].GetP0();
@@ -285,22 +284,21 @@ void StrutForces(State s, double  t, double m) {            // needs state, stru
             lij = xij.norm() / 100;
             uij = xij / lij;
 
-            //cout << "xij: " << xij << "; lij: " << lij << "; uij: " << uij << endl;
-
-            tempf =  -1 * ((B_Strut[i].GetK() * (lij - B_Strut[i].GetL0())) * uij);
-
-            //if(xi != TopLVIndx && xi != TopRVIndx && xj != TopLVIndx && xj != TopRVIndx) {
-            //cout << "B_Strut->GetK() / m: " << B_Strut[i].GetK() / m << endl;
+            //cout << "xij: " << xij << "; lij: " << lij << "B_Strut[i].GetL0(): " << B_Strut[i].GetL0()<< "; uij: " << uij << endl;
+            //if((lij - B_Strut[i].GetL0()) != 0 ) cout << "I wasnt equal..." << endl;
+            tempf = ((B_Strut[i].GetK() * (lij - B_Strut[i].GetL0())) * uij);
+            //if((lij - B_Strut[i].GetL0()) != 0 ){
+            ////cout << "B_Strut->GetK(): " << B_Strut[i].GetK() << endl;
             //cout << "(lij - B_Strut->GetL0()) * uij: " << (lij - B_Strut[i].GetL0()) * uij << endl;
             //cout << "fs: " << tempf << endl;
-
+            //}
             Forces[xi] = Forces[xi] + tempf;
             Forces[xj] = Forces[xj] - tempf;
 
             //cout << "before damping: " <<  Forces[xi] << endl;
             //cout << Forces[xj] << endl;
 
-            tempf = -1 * ((B_Strut[i].GetD()) * ((s[xj + statesize] - s[xi + statesize]) * uij) * uij);
+            tempf = ((B_Strut[i].GetD()) * ((s[xj + statesize] - s[xi + statesize]) * uij) * uij);
 
             //cout << "fd: " << tempf << endl;
 
@@ -310,7 +308,6 @@ void StrutForces(State s, double  t, double m) {            // needs state, stru
             //cout << "after damping: " << Forces[xi] << endl;
             //cout << "after damping: " << Forces[xj] << endl;
             //}
-        }
     }
 }
 
