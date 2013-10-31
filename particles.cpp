@@ -374,11 +374,11 @@ void StrutForces(State s, double t, double m) {            // needs state, strut
 }
 
 void CalcForces(State s, double  t, double m) {
-    StrutForces(s, t, m);
-
     int i, j;
     int statesize = s.GetSize();
     Vector3d tempf;
+
+    StrutForces(s, t, m);
 
     for(i = 0; i < statesize ; i++) {
         if (env.Wind.x == 0 && env.Wind.y == 0 && env.Wind.z == 0)
@@ -393,9 +393,7 @@ void CalcForces(State s, double  t, double m) {
                 tempf = (LeftV[j] - s[LeftVIndx[j]]) / ((LeftV[j] - s[LeftVIndx[j] + statesize]).norm() / 100);
                 Forces[i] = (.0000011844 * ((LeftV[j] - s[LeftVIndx[j]]).norm() / 100)) * tempf;
 
-            }
-
-            if (i == RightVIndx[j]) {
+            } else if (i == RightVIndx[j]) {
                 tempf = (RightV[j]- s[RightVIndx[j]]) / ((RightV[j] - s[RightVIndx[j] + statesize]).norm() / 100);
                 Forces[i] = (.0000011844 * ((RightV[j] - s[RightVIndx[j]]).norm() / 100)) * tempf;
             }
@@ -497,19 +495,26 @@ void TimerCallback(int){
 void PopulateState(int vertcnt) {
     int i, j;
     B_State.SetSize(vertcnt);
+    int alreadyAdded = false;
 
     for(i = 0; i < vertcnt; i++) {
         for(j = 0; j < 6; j++) {
             if (Butterfly->getVert(i) == LeftV[j]) {
                 LeftVIndx[j] = i;
                 B_State.AddState(i, Butterfly->getVert(i), Vector(0.0,0.0,-0.1));
-            } else if (Butterfly->getVert(i) == RightV[j]) {
+                alreadyAdded = true;
+            }
+
+            if (Butterfly->getVert(i) == RightV[j]) {
                 RightVIndx[j] = i;
                 B_State.AddState(i, Butterfly->getVert(i), Vector(0.0,0.0,-0.1));
-            } else {
-                B_State.AddState(i, Butterfly->getVert(i), Vector(0.0,0.0,0.0));
+                alreadyAdded = true;
             }
         }
+
+        if(!alreadyAdded) B_State.AddState(i, Butterfly->getVert(i), Vector(0.0,0.0,0.0));
+
+        alreadyAdded = false;
     }
 }
 
@@ -530,8 +535,8 @@ void PopulateStrut(int edgecnt, double kw, double dw, double kb, double db) {
 
         if(strcmp(tempgrpname, "bottomWings") == 0 || strcmp(tempgrpname, "topWings") == 0) {
             for(j = 0; j < 6; j++) {
-                if (tempedge.x == RightV[j] || tempedge.x == LeftV[j] || tempedge.y == RightV[j] || tempedge.y == LeftV[j])
-                    B_Strut[i].SetStrut(kw, dw, l, tempedge.x, tempedge.y, 2);
+                if (tempedge.x == RightVIndx[j] || tempedge.x == LeftVIndx[j] || tempedge.y == RightVIndx[j] || tempedge.y == LeftVIndx[j])
+                    B_Strut[i].SetStrut(kw, dw, l, tempedge.x, tempedge.y, 1);
                 else B_Strut[i].SetStrut(kw, dw, l, tempedge.x, tempedge.y, 1);
             }
         } else
