@@ -280,11 +280,11 @@ void HingeForces(State s, double t, double m) {        // this doesn't bode well
         x3 = s[B_Hinge[i].GetX3()];
 
         // hinge:
-        l01 = (x1 - x0).norm() ;
+        l01 = (x1 - x0).norm() / 100;
         h = (x1 - x0) / l01;
 
-        u03 = (x3 - x0) / ((x3 - x0).norm() );
-        u02 = (x2 - x0) / ((x2 - x0).norm() );
+        u03 = (x3 - x0) / ((x3 - x0).norm() / 100);
+        u02 = (x2 - x0) / ((x2 - x0).norm() / 100);
 
         // I don't need to change these to centimeters...right? h should be..and unit vectors are...
         nl = (h % u03) / (h % u03).norm();
@@ -338,12 +338,12 @@ void StrutForces(State s, double t, double m) {            // needs state, strut
                 xj = B_Strut[i].GetP0();
 
                 xij = s[xj] - s[xi];
-                lij = xij.norm();
+                lij = xij.norm() / 100;
                 uij = xij / lij;
 
                 //cout << "xij: " << xij << "; lij: " << lij << "B_Strut[i].GetL0(): " << B_Strut[i].GetL0()<< "; uij: " << uij << endl;
                 //if((lij - B_Strut[i].GetL0()) != 0 ) cout << "I wasnt equal..." << endl;
-                tempf = ((B_Strut[i].GetK() * (lij - B_Strut[i].GetL0())) * uij);
+                tempf = m * ((B_Strut[i].GetK() * (lij - B_Strut[i].GetL0())) * uij);
                 //if((lij - B_Strut[i].GetL0()) != 0 ){
                 ////cout << "B_Strut->GetK(): " << B_Strut[i].GetK() << endl;
                 //cout << "(lij - B_Strut->GetL0()) * uij: " << (lij - B_Strut[i].GetL0()) * uij << endl;
@@ -355,7 +355,7 @@ void StrutForces(State s, double t, double m) {            // needs state, strut
                 //cout << "before damping: " <<  Forces[xi] << endl;
                 //cout << Forces[xj] << endl;
 
-                tempf = ((B_Strut[i].GetD()) * ((s[xj + statesize] - s[xi + statesize]) * uij) * uij);
+                tempf = m * ((B_Strut[i].GetD()) * ((s[xj + statesize] - s[xi + statesize]) * uij) * uij);
 
                 //cout << "fd: " << tempf << endl;
 
@@ -387,12 +387,13 @@ void CalcForces(State s, double  t, double m) {
 
         for(j = 0; j < 6; j++) {
             if(i == LeftVIndx[j]) {
-                tempf = (LeftV[j] - s[LeftVIndx[j]]) / ((LeftV[j] - s[LeftVIndx[j] + statesize]).norm());
-                Forces[i] = (K * ((LeftV[j] - s[LeftVIndx[j]]).norm() )) * tempf;
+                tempf = (LeftV[j] - s[LeftVIndx[j]]) / ((LeftV[j] - s[LeftVIndx[j] + statesize]).norm() / 100);
+                Forces[i] = m * (K * ((LeftV[j] - s[LeftVIndx[j]]).norm() / 100)) * tempf;
+
 
             } else if (i == RightVIndx[j]) {
-                tempf = (RightV[j]- s[RightVIndx[j]]) / ((RightV[j] - s[RightVIndx[j] + statesize]).norm());
-                Forces[i] = (K * ((RightV[j] - s[RightVIndx[j]]).norm() )) * tempf;
+                tempf = (RightV[j]- s[RightVIndx[j]]) / ((RightV[j] - s[RightVIndx[j] + statesize]).norm() / 100);
+                Forces[i] = m * (K * ((RightV[j] - s[RightVIndx[j]]).norm() / 100)) * tempf;
             }
 
         }
@@ -529,7 +530,7 @@ void PopulateStrut(int edgecnt, int vertcnt, double kw, double dw, double kb, do
         tempegid =  Butterfly->getEdgeGrp(i);
         tempgrpname = Butterfly->getGroup(tempegid).getName();
 
-        l = ((Butterfly->getVert(tempedge.y) - Butterfly->getVert(tempedge.x)).norm());
+        l = ((Butterfly->getVert(tempedge.y) - Butterfly->getVert(tempedge.x)).norm()) / 100;
 
         if(strcmp(tempgrpname, "body") != 0) {
             //for(j = 0; j < 6; j++) {
