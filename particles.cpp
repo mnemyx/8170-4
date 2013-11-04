@@ -587,7 +587,7 @@ void PopulateHinge(int hingecnt, double ktheta) {
         //cout << x0 << endl << x1 << endl << x2 << endl << x3 << endl << endl;
 
         // hinge:
-        l01 = (x1 - x0).norm()
+        l01 = (x1 - x0).norm();
         h = (x1 - x0) / l01;
 
         u03 = (x3 - x0).normalize(); //  / ((x3 - x0).norm() / 100 );
