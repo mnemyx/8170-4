@@ -280,28 +280,27 @@ void HingeForces(State s, double t, double m) {        // this doesn't bode well
         x3 = s[B_Hinge[i].GetX3()];
 
         // hinge:
-        l01 = (x1 - x0).norm() / 100;
+        l01 = (x1 - x0).norm();
         h = (x1 - x0) / l01;
 
-        u03 = (x3 - x0) / ((x3 - x0).norm() / 100);
-        u02 = (x2 - x0) / ((x2 - x0).norm() / 100);
+        u03 = (x3 - x0).normalize(); // / ((x3 - x0).norm());
+        u02 = (x2 - x0).normalize(); // / ((x2 - x0).norm());
 
-        // I don't need to change these to centimeters...right? h should be..and unit vectors are...
-        nl = (h % u03) / (h % u03).norm();
-        nr = (u02 % h) / (u02 % h).norm();
+        nl = (h % u03).normalize(); // / (h % u03).norm();
+        nr = (u02 % h).normalize(); // / (u02 % h).norm();
 
         rl = (x3 - x0) - ((x3 - x0) * h) * h;
-        rr = (x3 - x0) - ((x2 - x0) * h) * h;
+        rr = (x2 - x0) - ((x2 - x0) * h) * h;
 
         sina = (nl % nr) * h;
         cosa = nl * nr;
 
-        theta = atan(sina / cosa);
+        theta = atan2(sina, cosa);
 
         T = B_Hinge[i].GetK() * (theta - B_Hinge[i].GetA0()) * h;
 
-        f3 = T / (rl.norm()) * h;
-        f2 = T / (rr.norm()) * h;
+        f3 = T / (rl.norm()) * nl;
+        f2 = T / (rr.norm()) * nr;
 
         l3 = (x3 - x0) * h;
         l2 = (x2 - x0) * h;
@@ -338,7 +337,7 @@ void StrutForces(State s, double t, double m) {            // needs state, strut
                 xj = B_Strut[i].GetP0();
 
                 xij = s[xj] - s[xi];
-                lij = xij.norm() / 100;
+                lij = xij.norm();
                 uij = xij / lij;
 
                 //cout << "xij: " << xij << "; lij: " << lij << "B_Strut[i].GetL0(): " << B_Strut[i].GetL0()<< "; uij: " << uij << endl;
@@ -379,21 +378,21 @@ void CalcForces(State s, double  t, double m) {
 
     for(i = 0; i < statesize ; i++) {
         if (env.Wind.x == 0 && env.Wind.y == 0 && env.Wind.z == 0)
-            tempf = m * (env.G - env.Viscosity * s[i + statesize]);
+            tempf = env.G - env.Viscosity * s[i + statesize];
         else
-            tempf = m * (env.G + env.Viscosity * (env.Wind - s[i + statesize]));
+            tempf = env.G + env.Viscosity * (env.Wind - s[i + statesize]);
 
         Forces[i] = Forces[i] + tempf;
 
         for(j = 0; j < 6; j++) {
             if(i == LeftVIndx[j]) {
-                tempf = (LeftV[j] - s[LeftVIndx[j]]) / ((LeftV[j] - s[LeftVIndx[j] + statesize]).norm() / 100);
-                Forces[i] = - (K * ((LeftV[j] - s[LeftVIndx[j]]).norm() / 100)) * tempf;
+                tempf = (LeftV[j] - s[LeftVIndx[j]]) / ((LeftV[j] - s[LeftVIndx[j] + statesize]).norm());
+                Forces[i] = - (K * ((LeftV[j] - s[LeftVIndx[j]]).norm())) * tempf;
 
 
             } else if (i == RightVIndx[j]) {
-                tempf = (RightV[j]- s[RightVIndx[j]]) / ((RightV[j] - s[RightVIndx[j] + statesize]).norm() / 100);
-                Forces[i] = - (K * ((RightV[j] - s[RightVIndx[j]]).norm() / 100)) * tempf;
+                tempf = (RightV[j]- s[RightVIndx[j]]) / ((RightV[j] - s[RightVIndx[j] + statesize]).norm());
+                Forces[i] = - (K * ((RightV[j] - s[RightVIndx[j]]).norm())) * tempf;
             }
 
         }
@@ -542,28 +541,6 @@ void PopulateStrut(int edgecnt, int vertcnt, double kw, double dw, double kb, do
         } else
             B_Strut[i].SetStrut(kb, db, l, tempedge.x, tempedge.y, 0);
     }
-
-    /**
-    for(i = 0; i < 6; i++) {
-        for(j = 0; j < vertcnt; j++) {
-
-            l = ((Butterfly->getVert(tempedge.x) - RightV[i]).norm()) / 100;
-
-            B_Strut[tmpindx++].SetStrut()
-        }
-    } **/
-
-/**
-    // Jordan's idea
-    for(i = 0; i < vertcnt - 1; i++) {
-        for (j = 0; j < vertcnt; j++) {
-
-            l = (Butterfly->getVert(j) - Butterfly->getVert(i)).norm() / 100;
-
-            B_Strut[i].SetStrut(kw, dw,l, i, j, 0);
-        }
-    }
-**/
 }
 
 void PopulateHinge(int hingecnt, double ktheta) {
@@ -610,15 +587,14 @@ void PopulateHinge(int hingecnt, double ktheta) {
         //cout << x0 << endl << x1 << endl << x2 << endl << x3 << endl << endl;
 
         // hinge:
-        l01 = (x1 - x0).norm() / 100;
+        l01 = (x1 - x0).norm()
         h = (x1 - x0) / l01;
 
-        u03 = (x3 - x0) / ((x3 - x0).norm() / 100 );
-        u02 = (x2 - x0) / ((x2 - x0).norm() / 100 );
+        u03 = (x3 - x0).normalize(); //  / ((x3 - x0).norm() / 100 );
+        u02 = (x2 - x0).normalize(); // / ((x2 - x0).norm() / 100 );
 
-        // I don't need to change these to centimeters...right? h should be..and unit vectors are...
-        nl = (h % u03) / (h % u03).norm();
-        nr = (u02 % h) / (u02 % h).norm();
+        nl = (h % u03).normalize(); // / (h % u03).norm();
+        nr = (u02 % h).normalize(); // / (u02 % h).norm();
 
         rl = (x3 - x0) - ((x3 - x0) * h) * h;
         rr = (x2 - x0) - ((x2 - x0) * h) * h;
@@ -626,7 +602,7 @@ void PopulateHinge(int hingecnt, double ktheta) {
         sina = (nl % nr) * h;
         cosa = nl * nr;
 
-        B_Hinge[i].SetA0(atan(sina/cosa));
+        B_Hinge[i].SetA0(atan2(sina, cosa));
     }
 
 }
