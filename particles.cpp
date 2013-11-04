@@ -343,7 +343,7 @@ void StrutForces(State s, double t, double m) {            // needs state, strut
 
                 //cout << "xij: " << xij << "; lij: " << lij << "B_Strut[i].GetL0(): " << B_Strut[i].GetL0()<< "; uij: " << uij << endl;
                 //if((lij - B_Strut[i].GetL0()) != 0 ) cout << "I wasnt equal..." << endl;
-                tempf = m * ((B_Strut[i].GetK() * (lij - B_Strut[i].GetL0())) * uij);
+                tempf = - ((B_Strut[i].GetK() * (lij - B_Strut[i].GetL0())) * uij);
                 //if((lij - B_Strut[i].GetL0()) != 0 ){
                 ////cout << "B_Strut->GetK(): " << B_Strut[i].GetK() << endl;
                 //cout << "(lij - B_Strut->GetL0()) * uij: " << (lij - B_Strut[i].GetL0()) * uij << endl;
@@ -355,7 +355,7 @@ void StrutForces(State s, double t, double m) {            // needs state, strut
                 //cout << "before damping: " <<  Forces[xi] << endl;
                 //cout << Forces[xj] << endl;
 
-                tempf = m * ((B_Strut[i].GetD()) * ((s[xj + statesize] - s[xi + statesize]) * uij) * uij);
+                tempf = - ((B_Strut[i].GetD()) * ((s[xj + statesize] - s[xi + statesize]) * uij) * uij);
 
                 //cout << "fd: " << tempf << endl;
 
@@ -388,12 +388,12 @@ void CalcForces(State s, double  t, double m) {
         for(j = 0; j < 6; j++) {
             if(i == LeftVIndx[j]) {
                 tempf = (LeftV[j] - s[LeftVIndx[j]]) / ((LeftV[j] - s[LeftVIndx[j] + statesize]).norm() / 100);
-                Forces[i] = m * (K * ((LeftV[j] - s[LeftVIndx[j]]).norm() / 100)) * tempf;
+                Forces[i] = - (K * ((LeftV[j] - s[LeftVIndx[j]]).norm() / 100)) * tempf;
 
 
             } else if (i == RightVIndx[j]) {
                 tempf = (RightV[j]- s[RightVIndx[j]]) / ((RightV[j] - s[RightVIndx[j] + statesize]).norm() / 100);
-                Forces[i] = m * (K * ((RightV[j] - s[RightVIndx[j]]).norm() / 100)) * tempf;
+                Forces[i] = - (K * ((RightV[j] - s[RightVIndx[j]]).norm() / 100)) * tempf;
             }
 
         }
