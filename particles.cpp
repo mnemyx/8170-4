@@ -386,12 +386,12 @@ void CalcForces(State s, double  t, double m) {
 
         for(j = 0; j < 6; j++) {
             if(i == LeftVIndx[j]) {
-                tempf = (LeftV[j] - s[LeftVIndx[j]]) / ((LeftV[j] - s[LeftVIndx[j] + statesize]).norm());
+                tempf = (LeftV[j] - s[LeftVIndx[j]]).normalize(); // / ((LeftV[j] - s[LeftVIndx[j] + statesize]).norm());
                 Forces[i] = - (K * ((LeftV[j] - s[LeftVIndx[j]]).norm())) * tempf;
 
 
             } else if (i == RightVIndx[j]) {
-                tempf = (RightV[j]- s[RightVIndx[j]]) / ((RightV[j] - s[RightVIndx[j] + statesize]).norm());
+                tempf = (RightV[j]- s[RightVIndx[j]]).normalize(); // / ((RightV[j] - s[RightVIndx[j] + statesize]).norm());
                 Forces[i] = - (K * ((RightV[j] - s[RightVIndx[j]]).norm())) * tempf;
             }
 
@@ -451,15 +451,15 @@ void Simulate(){
         return;
     }
 
-    //filebuf buf;
-    //buf.open(("testlog"), ios::out);
-    //streambuf* oldbuf = cout.rdbuf( &buf ) ;
+    filebuf buf2;
+    buf2.open(("statelog"), ios::out);
+    streambuf* oldbuf2 = cout.rdbuf( &buf2 ) ;
 
     //cout << "Before & After " << endl;
     DrawScene();
     B_State = RK4(B_State, env.Mass, Time, TimeStep);
-    //B_State.PrintState();
-    //cout.rdbuf(oldbuf);
+    B_State.PrintState();
+    cout.rdbuf(oldbuf2);
 
 
     // advance the real timestep
