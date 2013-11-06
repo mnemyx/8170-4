@@ -201,14 +201,6 @@ void DrawModel() {
 
 		glBegin(op);
 		if(!Wireframe) {
-			// do normal stuff (glNormal3f)
-			/* below is original from objview, but need to consider the fact that particles are always moving
-			if(Butterfly->getFaces(i).getNormNdx(0) != -1) {
-				normal = Butterfly->getNorm(Butterfly->getFaces(i).getNormNdx(0));
-			} else {
-				normal = Butterfly->computeNormal(i);
-			} */
-
 			x0 = B_State[Butterfly->getFaces(i).getVertNdx(0)];
             x1 = B_State[Butterfly->getFaces(i).getVertNdx(1)];
             x2 = B_State[Butterfly->getFaces(i).getVertNdx(2)];
@@ -312,22 +304,22 @@ void HingeForces(State s, double t, double m) {        // this doesn't bode well
         Forces[B_Hinge[i].GetX1()] = Forces[B_Hinge[i].GetX1()] + f1;
         Forces[B_Hinge[i].GetX2()] = Forces[B_Hinge[i].GetX2()] + f2;
         Forces[B_Hinge[i].GetX3()] = Forces[B_Hinge[i].GetX3()] + f3;
+
+        //cout << "f0: " << f0 << endl;
+        //cout << "f1: " << f1 << endl;
+        //cout << "f2: " << f2 << endl;
+        //cout << "f3: " << f3 << endl;
+
     }
 
 }
 
 
-void StrutForces(State s, double t, double m) {            // needs state, strut and forces
+void StrutForces(State s, double t, double m, int statesize) {            // needs state, strut and forces
     Vector3d xij, uij;
     float lij;
     int i, xi, xj;
     Vector3d tempf;
-
-    int statesize = s.GetSize();
-
-    // intialize all forces to 0
-    for(i = 0; i < statesize ; i++)
-        Forces[i].set(0.0,0.0,0.0);
 
     // adding and calculating force - starting with spring and dampener
     for (i = 0; i < Butterfly->getEdgeCnt(); i++) {
@@ -339,34 +331,33 @@ void StrutForces(State s, double t, double m) {            // needs state, strut
                 xij = s[xj] - s[xi];
                 lij = xij.norm();
                 uij = xij / lij;
+                //cout << endl;
+                //cout << "i : " << i << endl;
+                //cout << "xij: " << xij << "; lij: " << lij << "; B_Strut[i].GetL0(): " << B_Strut[i].GetL0()<< "; uij: " << uij << endl;
 
-                //cout << "xij: " << xij << "; lij: " << lij << "B_Strut[i].GetL0(): " << B_Strut[i].GetL0()<< "; uij: " << uij << endl;
-                //if((lij - B_Strut[i].GetL0()) != 0 ) cout << "I wasnt equal..." << endl;
-                tempf = - ((B_Strut[i].GetK() * (lij - B_Strut[i].GetL0())) * uij);
-                //if((lij - B_Strut[i].GetL0()) != 0 ){
-                ////cout << "B_Strut->GetK(): " << B_Strut[i].GetK() << endl;
+                tempf =  ((B_Strut[i].GetK() * (lij - B_Strut[i].GetL0())) * uij);
+
+                //cout << "B_Strut->GetK(): " << B_Strut[i].GetK() << endl;
                 //cout << "(lij - B_Strut->GetL0()) * uij: " << (lij - B_Strut[i].GetL0()) * uij << endl;
                 //cout << "fs: " << tempf << endl;
-                //}
+
                 Forces[xi] = Forces[xi] + tempf;
                 Forces[xj] = Forces[xj] - tempf;
 
-                //cout << "before damping: " <<  Forces[xi] << endl;
-                //cout << Forces[xj] << endl;
+                //cout << "before damping | [xi]: " <<  Forces[xi] << endl;
+                //cout << "before damping | [xj]: " <<  Forces[xj] << endl;
 
-                tempf = - ((B_Strut[i].GetD()) * ((s[xj + statesize] - s[xi + statesize]) * uij) * uij);
+                tempf =  ((B_Strut[i].GetD())  * ((s[xj + statesize] - s[xi + statesize]) * uij) * uij);
 
-                //cout << "fd: " << tempf << endl;
+                cout << "fd: " << tempf << endl;
 
                 Forces[xi] = Forces[xi] + tempf;
                 Forces[xj] = Forces[xj] - tempf;
             //}
-            //cout << "after damping: " << Forces[xi] << endl;
-            //cout << "after damping: " << Forces[xj] << endl;
-            //}
+            //cout << "after damping, Forces[xi]: " << Forces[xi] << endl;
+            //cout << "after damping, Forces[xj]: " << Forces[xj] << endl;
+
     }
-
-    HingeForces(s, t, m);
 }
 
 void CalcForces(State s, double  t, double m) {
@@ -374,29 +365,37 @@ void CalcForces(State s, double  t, double m) {
     int statesize = s.GetSize();
     Vector3d tempf;
 
-    StrutForces(s, t, m);
+    // intialize all forces to 0
+    for(i = 0; i < statesize ; i++)
+        Forces[i].set(0.0,0.0,0.0);
 
+    StrutForces(s, t, m, statesize);
+    //HingeForces(s, t, m);
+
+    //cout << "statesize: " << statesize << endl;
     for(i = 0; i < statesize ; i++) {
+        //cout << "i - s[i + statesize]: " << i << " - " << s[i + statesize] << endl;
         if (env.Wind.x == 0 && env.Wind.y == 0 && env.Wind.z == 0)
-            tempf = env.G - env.Viscosity * s[i + statesize];
+            tempf = (env.G - env.Viscosity * s[i + statesize]) * m;
         else
-            tempf = env.G + env.Viscosity * (env.Wind - s[i + statesize]);
+            tempf = (env.G + env.Viscosity * (env.Wind - s[i + statesize])) * m;
 
+        //cout << "tempf: " << tempf << endl;
         Forces[i] = Forces[i] + tempf;
 
-        for(j = 0; j < 6; j++) {
-            if(i == LeftVIndx[j]) {
-                tempf = (LeftV[j] - s[LeftVIndx[j]]).normalize(); // / ((LeftV[j] - s[LeftVIndx[j] + statesize]).norm());
-                Forces[i] = - (K * ((LeftV[j] - s[LeftVIndx[j]]).norm())) * tempf;
 
+        //for(j = 0; j < 6; j++) {
+            //if(i == LeftVIndx[j]) {
+                //tempf = (LeftV[j] - s[LeftVIndx[j]]).normalize(); // / ((LeftV[j] - s[LeftVIndx[j] + statesize]).norm());
+                //Forces[i] = - (K * ((LeftV[j] - s[LeftVIndx[j]]).norm())) * tempf;
+                //Forces[i] = 0;
 
-            } else if (i == RightVIndx[j]) {
-                tempf = (RightV[j]- s[RightVIndx[j]]).normalize(); // / ((RightV[j] - s[RightVIndx[j] + statesize]).norm());
-                Forces[i] = - (K * ((RightV[j] - s[RightVIndx[j]]).norm())) * tempf;
-            }
-
-        }
-
+            //} else if (i == RightVIndx[j]) {
+                //tempf = (RightV[j]- s[RightVIndx[j]]).normalize(); // / ((RightV[j] - s[RightVIndx[j] + statesize]).norm());
+                //Forces[i] = - (K * ((RightV[j] - s[RightVIndx[j]]).norm())) * tempf;
+                //Forces[i] = 0;
+            //}
+        //}
     }
 
     //if(Forces[i].x < 0 || Forces[i].y  || Forces[i].z < 0) Forces[i].set(0,0,0);
@@ -432,8 +431,8 @@ State RK4(State s, double m, double t, double ts) {
     //cout << "k3" << endl;
     //k3.PrintState();
     k4 = F(s + k3, m, t + ts) * ts;
-   // cout << "k4" << endl;
-   // k4.PrintState();
+    //cout << "k4" << endl;
+    //k4.PrintState();
 
     return (s + ((k1 + (k2*2) + (k3*2) + k4) * (.1666)));
 }
@@ -458,6 +457,13 @@ void Simulate(){
     //cout << "Before & After " << endl;
     DrawScene();
     B_State = RK4(B_State, env.Mass, Time, TimeStep);
+
+    for(j = 0; j < 6; j++) {
+        B_State[LeftVIndx[j]] = LeftV[j];
+        B_State[RightVIndx[j]] = RightV[j];
+    }
+
+
     B_State.PrintState();
     cout.rdbuf(oldbuf2);
 
@@ -529,7 +535,7 @@ void PopulateStrut(int edgecnt, int vertcnt, double kw, double dw, double kb, do
         tempegid =  Butterfly->getEdgeGrp(i);
         tempgrpname = Butterfly->getGroup(tempegid).getName();
 
-        l = ((Butterfly->getVert(tempedge.y) - Butterfly->getVert(tempedge.x)).norm()) / 100;
+        l = ((Butterfly->getVert(tempedge.y) - Butterfly->getVert(tempedge.x)).norm());
 
         if(strcmp(tempgrpname, "body") != 0) {
             //for(j = 0; j < 6; j++) {

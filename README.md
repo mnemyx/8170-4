@@ -26,11 +26,13 @@ DESCRIPTION
 	OBJ/MTL files generated in Maya
 
 	Usage: particles [param_filename] [obj_file.obj]
-
+	ex,    particles p_c testcloth.obj
 
 KEY COMMANDS
 ==================================================================
-	m or M		IMPORTANT: transforming camera view to simulation control (default: camera)
+	d or D		start simulation
+	s or S		switches simulation from step to continous
+	w or W		switches simulation from wireframe to shaded
 	p or P		switches from ortho to perspective views (default: perspective)
 	r or R      	resets the simulation, so if you change parameters - this will re-read them
 	q or ESC	quit
@@ -38,28 +40,19 @@ KEY COMMANDS
 
 MOUSE COMMANDS
 ==================================================================
-	SIMULATION:
-	RMB		opens menu
-	LMB 		triggers selected option
-
-	CAMERA: 		  left button		 |	   middle button  	|		right button
+	CAMERA: 	left button		 |	middle button  	|	right button
 	left drag	(-) rotation: model's y	 |  (+)-r: camera's y	|  (+) translation: camera's z
 	right drag	(+) rotation: model's y	 |  (-)-r: camera's y	|  (-) translation: camera's z
 	down drag	(+) rotation: model's x	 |  (+)-r: camera's x	|  (+) translation: camera's z
 	up drag		(-) rotation: model's x	 |  (-)-r: camera's x	|  (-) translation: camera's z
 
 
-MENU COMMANDS
-==================================================================
-	Continuous/Step		changes simulation between continuous or step
-	Quit				quit
-
-
 FILES
 ==================================================================
 	particles.cpp (main program)
 	State.cpp, State.h
-	Struts.cpp, Struts.h
+	Strut.cpp, Strut.h
+	Hinge.cpp, Hinge.h
 
 
 MISC FILES
@@ -87,9 +80,9 @@ MISC FILES
 
 SAMPLE OUTPUT FILES
 ==================================================================
-	screencap.png
+	N/A
 
 
 TOTAL FILE COUNT
 ==================================================================
-	????
+	~42
