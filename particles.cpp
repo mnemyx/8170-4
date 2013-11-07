@@ -132,7 +132,7 @@ static PolySurf *Butterfly;	      // polygonal surface data structure
 static Vector3d B_Centroid, B_Bboxmin, B_Bboxmax;
 static Vector3d RightV[6], LeftV[6];
 static int RightVIndx[6], LeftVIndx[6];
-
+static int keyframe = 0;
 
 /** Texture map to be used by program **/
 static GLuint* TextureID;	    		// texture ID from OpenGL
@@ -349,13 +349,14 @@ void StrutForces(State s, double t, double m, int statesize) {            // nee
 
                 tempf =  ((B_Strut[i].GetD())  * ((s[xj + statesize] - s[xi + statesize]) * uij) * uij);
 
-                cout << "fd: " << tempf << endl;
+                //cout << "fd: " << tempf << endl;
 
                 Forces[xi] = Forces[xi] + tempf;
                 Forces[xj] = Forces[xj] - tempf;
             //}
             //cout << "after damping, Forces[xi]: " << Forces[xi] << endl;
             //cout << "after damping, Forces[xj]: " << Forces[xj] << endl;
+
 
     }
 }
@@ -370,7 +371,7 @@ void CalcForces(State s, double  t, double m) {
         Forces[i].set(0.0,0.0,0.0);
 
     StrutForces(s, t, m, statesize);
-    //HingeForces(s, t, m);
+    HingeForces(s, t, m);
 
     //cout << "statesize: " << statesize << endl;
     for(i = 0; i < statesize ; i++) {
@@ -382,20 +383,6 @@ void CalcForces(State s, double  t, double m) {
 
         //cout << "tempf: " << tempf << endl;
         Forces[i] = Forces[i] + tempf;
-
-
-        //for(j = 0; j < 6; j++) {
-            //if(i == LeftVIndx[j]) {
-                //tempf = (LeftV[j] - s[LeftVIndx[j]]).normalize(); // / ((LeftV[j] - s[LeftVIndx[j] + statesize]).norm());
-                //Forces[i] = - (K * ((LeftV[j] - s[LeftVIndx[j]]).norm())) * tempf;
-                //Forces[i] = 0;
-
-            //} else if (i == RightVIndx[j]) {
-                //tempf = (RightV[j]- s[RightVIndx[j]]).normalize(); // / ((RightV[j] - s[RightVIndx[j] + statesize]).norm());
-                //Forces[i] = - (K * ((RightV[j] - s[RightVIndx[j]]).norm())) * tempf;
-                //Forces[i] = 0;
-            //}
-        //}
     }
 
     //if(Forces[i].x < 0 || Forces[i].y  || Forces[i].z < 0) Forces[i].set(0,0,0);
@@ -450,22 +437,31 @@ void Simulate(){
         return;
     }
 
-    filebuf buf2;
-    buf2.open(("statelog"), ios::out);
-    streambuf* oldbuf2 = cout.rdbuf( &buf2 ) ;
+    //filebuf buf2;
+    //buf2.open(("statelog"), ios::out);
+    //streambuf* oldbuf2 = cout.rdbuf( &buf2 ) ;
 
     //cout << "Before & After " << endl;
     DrawScene();
     B_State = RK4(B_State, env.Mass, Time, TimeStep);
 
-    for(j = 0; j < 6; j++) {
-        B_State[LeftVIndx[j]] = LeftV[j];
-        B_State[RightVIndx[j]] = RightV[j];
+    if (keyframe == 0) {
+        for(j = 0; j < 6; j++) {
+            B_State[LeftVIndx[j]] = LeftV[j] + Vector3d(.2,.4,-1);
+            B_State[RightVIndx[j]] = RightV[j] + Vector3d(-.2,.4,-1);
+            keyframe = 1;
+        }
+    } else {
+        for(j = 0; j < 6; j++) {
+            B_State[LeftVIndx[j]] = LeftV[j] + Vector3d(.2,.4,.01);
+            B_State[RightVIndx[j]] = RightV[j] + Vector3d(-.2,.4,.01);
+            keyframe = 0;
+        }
     }
 
 
-    B_State.PrintState();
-    cout.rdbuf(oldbuf2);
+    //B_State.PrintState();
+    //cout.rdbuf(oldbuf2);
 
 
     // advance the real timestep
@@ -640,8 +636,8 @@ void LoadParameters(char *filename, char *objfile){
     ObjFilename = objfile;
 
     // init the param file....
-    if(fscanf(paramfile, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",
-              &TimeStep, &ktheta, &K, &kw, &dw, &kb, &db, &m,
+    if(fscanf(paramfile, "%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf",
+              &TimeStep, &ktheta, &kw, &dw, &kb, &db, &m,
               &(v0r.x), &(v0r.y), &(v0r.z),
               &(v0l.x), &(v0l.y), &(v0l.z),
               &(v0.x), &(v0.y), &(v0.z),
@@ -658,7 +654,7 @@ void LoadParameters(char *filename, char *objfile){
               &(LeftV[2].x), &(LeftV[2].y), &(LeftV[2].z),
               &(LeftV[3].x), &(LeftV[3].y), &(LeftV[3].z),
               &(LeftV[4].x), &(LeftV[4].y), &(LeftV[4].z),
-              &(LeftV[5].x), &(LeftV[5].y), &(LeftV[5].z))  != 60){
+              &(LeftV[5].x), &(LeftV[5].y), &(LeftV[5].z))  != 59){
         fprintf(stderr, "error reading parameter file %s\n", filename);
         fclose(paramfile);
         exit(1);
@@ -923,6 +919,8 @@ void handleKey(unsigned char key, int x, int y){
     case 's':
     case 'S':
       Stepped = !Stepped;
+      if(Stepped) cout << "Stepped Mode";
+      else cout << "Continous Mode";
       break;
 
     case 'd':

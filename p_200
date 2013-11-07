@@ -1,8 +1,7 @@
 .1
 
-638
-6.38
-6.38        0.0
+930
+.09380        0.0
 0.0          0.0
 
 .5
@@ -13,7 +12,7 @@
 
 0.0           0.0           0.0
 0.0           0.0           0.0
-20
+2
 
 0.119726                2.867816                0.054115
 0.172697                2.422875                0.162476
@@ -34,7 +33,6 @@ parameters format
 timestep
 
 spring (K)                  [of hinges]
-spring (K)                  [for guiding points/oscillation]
 spring (K)  dampener (D)    [of wings]
 spring (L)  dampener (D)    [of body]
 
